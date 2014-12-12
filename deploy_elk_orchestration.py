@@ -99,6 +99,16 @@ def prepare_custom_scripts():
 
   print 'Successfully prepared custom scripts'
 
+# Prepares Pipeline Object Definition
+def prepare_pipeline_object(definition) :
+  new_definition = definition.replace('<pipeline_role>', config.get('data_pipeline','pipeline_role'))
+  new_definition = new_definition.replace('<pipeline_resource_role>', config.get('data_pipeline','pipeline_resource_role'))
+  new_definition = new_definition.replace('<aws_region>', config.get('general','aws_region'))
+  new_definition = new_definition.replace('<topic_arn>', config.get('cloudwatch', 'topic_arn'))
+  new_definition = new_definition.replace('<script_path>', config.get('custom_script', 's3_bucket') + "/" + config.get('custom_script', 's3_bucket_directory'))
+  new_definition = new_definition.replace('<source_path>', config.get('custom_script', 'shipper_source_s3_bucket') + "/" + config.get('custom_script', 'shipper_s3_bucket_directory'))
+  return new_definition
+  
 
 # Builds the Vulnpryer Data Pipeline
 def build_datapipeline() :
@@ -130,16 +140,20 @@ def build_datapipeline() :
   print 'Pipeline ' + config.get('data_pipeline','pipeline_name') + ' with ID ' + pipeline_id + ' created on ' + config.get('general','aws_region') 
 
   # Prepare Pipeline Definition
-  pipeline_definition=config.get('data_pipeline','pipeline_schedule')  +',' +  config.get('data_pipeline','pipeline_resource') + ',' + config.get('data_pipeline','pipeline_settings') 
-  pipeline_definition=pipeline_definition + ',' + config.get('data_pipeline','pipeline_alarm_failure') + ',' + config.get('data_pipeline','pipeline_alarm_success')
-  pipeline_definition=pipeline_definition + ',' + config.get('data_pipeline','pipeline_precondition_logstash_buffer_empty') + ',' + config.get('data_pipeline','pipeline_precondition_s3_empty') + ',' + config.get('data_pipeline','pipeline_precondition_has_keys') + ',' + config.get('data_pipeline','pipeline_precondition_s3_not_empty')
-  pipeline_definition=pipeline_definition +  ',' + config.get('data_pipeline','pipeline_activity_scaleup_shipper_redis')  + ',' + config.get('data_pipeline','pipeline_activity_scaleup_indexer') + ',' + config.get('data_pipeline','pipeline_activity_scaledown_shipper') 
-  pipeline_definition=pipeline_definition + ',' + config.get('data_pipeline','pipeline_activity_scaledown_redis_indexer') + ',' + config.get('data_pipeline','pipeline_activity_notification')
+  pipeline_objects = [config.get('data_pipeline','pipeline_schedule'), config.get('data_pipeline','pipeline_resource'), config.get('data_pipeline','pipeline_settings'), config.get('data_pipeline','pipeline_alarm_failure'),config.get('data_pipeline','pipeline_alarm_success'), config.get('data_pipeline','pipeline_precondition_logstash_buffer_empty'), config.get('data_pipeline','pipeline_precondition_s3_empty'), config.get('data_pipeline','pipeline_precondition_has_keys'), config.get('data_pipeline','pipeline_precondition_s3_not_empty'), config.get('data_pipeline','pipeline_activity_scaleup_shipper_redis'),config.get('data_pipeline','pipeline_activity_scaleup_indexer'),config.get('data_pipeline','pipeline_activity_scaledown_shipper'), config.get('data_pipeline','pipeline_activity_scaledown_redis_indexer'),config.get('data_pipeline','pipeline_activity_notification')]
+
+  pipeline_definition = '' 
+  for i in range (0,len(pipeline_objects)):
+    pipeline_definition = pipeline_definition + prepare_pipeline_object(pipeline_objects[i])
+    if i < len(pipeline_objects)-1 :
+      pipeline_definition = pipeline_definition + ','
+
  
   dp.put_pipeline_definition( ast.literal_eval('[' + pipeline_definition  +  ']') , pipeline_id) 
  
   print 'Pipeline objects created'
   print 'Successfully built pipeline'    
+
 
 # Create CloudWatch Alarms for the Opsworks Layers
 def create_cloudwatch_alarms() :
@@ -149,23 +163,23 @@ def create_cloudwatch_alarms() :
 
   cw = boto.ec2.cloudwatch.connect_to_region(region_name=config.get('general','aws_region'), aws_access_key_id=config.get('general','aws_access_key_id'), aws_secret_access_key=config.get('general','aws_secret_access_key'))
 
+  
+  cw.delete_alarms([config.get('cloudwatch','cw_alarm_shipper'), config.get('cloudwatch','cw_alarm_indexer'), config.get('cloudwatch','cw_alarm_redis')])
   shipper_metric = cw.list_metrics(dimensions={'LayerId': config.get('opsworks','shipper_opsworks_layer_id')},metric_name='procs')
   indexer_metric = cw.list_metrics(dimensions={'LayerId': config.get('opsworks','indexer_opsworks_layer_id')},metric_name='procs')
   redis_metric = cw.list_metrics(metric_name=config.get('cloudwatch', 'logstash_buffer_metric_name'),namespace=config.get('cloudwatch', 'logstash_buffer_metric_namespace'))
-
-
   
-  shipper_metric[0].create_alarm('Shipper_Overrunning', comparison='>', threshold=0, period=60,evaluation_periods=int(config.get('cloudwatch','overrunning_threshold_minutes')), statistic='Sum', alarm_actions=[config.get('cloudwatch','topic_arn')])
+  shipper_metric[0].create_alarm(config.get('cloudwatch','cw_alarm_shipper'), comparison='>', threshold=0, period=60,evaluation_periods=int(config.get('cloudwatch','overrunning_threshold_minutes')), statistic='Sum', alarm_actions=[config.get('cloudwatch','topic_arn')])
   print 'Created Cloudwatch alarm for Shipper Layer'
 
-  indexer_metric[0].create_alarm('Indexer_Overrunning', comparison='>', threshold=0, period=60,evaluation_periods=int(config.get('cloudwatch','overrunning_threshold_minutes')), statistic='Sum', alarm_actions=[config.get('cloudwatch','topic_arn')])
+  indexer_metric[0].create_alarm(config.get('cloudwatch','cw_alarm_indexer'), comparison='>', threshold=0, period=60,evaluation_periods=int(config.get('cloudwatch','overrunning_threshold_minutes')), statistic='Sum', alarm_actions=[config.get('cloudwatch','topic_arn')])
   print 'Created Cloudwatch alarm for Indexer Layer'
 
-  redis_metric[0].create_alarm('Redis_Overrunning', comparison='>', threshold=0, period=60,evaluation_periods=int(config.get('cloudwatch','overrunning_threshold_minutes')), statistic='Average' , alarm_actions=[config.get('cloudwatch','topic_arn')])
+  redis_metric[0].create_alarm(config.get('cloudwatch','cw_alarm_redis'), comparison='>', threshold=0, period=60,evaluation_periods=int(config.get('cloudwatch','overrunning_threshold_minutes')), statistic='Average' , alarm_actions=[config.get('cloudwatch','topic_arn')])
   print 'Created Cloudwatch alarm for Redis Layer'
 
 #### MAIN ####
-#define_iam_roles()
-#prepare_custom_scripts()
-#build_datapipeline()
+define_iam_roles()
+prepare_custom_scripts()
+build_datapipeline()
 create_cloudwatch_alarms()
