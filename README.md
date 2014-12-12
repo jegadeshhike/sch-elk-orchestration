@@ -34,7 +34,7 @@ Instructions:
 
 6. Run the script
 
-       python deploy_elk_orchestration.py
+         python deploy_elk_orchestration.py
 
   
      High level description of what the script does:
