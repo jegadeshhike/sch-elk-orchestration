@@ -45,5 +45,5 @@ Instructions:
 
 7. Log on as your IAM User to the AWS Data Pipeline console on the specified region.
 
-8. Activate to run the Pipeline.
+8. Make sure all instances in the Opswork stack are stopped. Activate to run the Pipeline.
 
