@@ -20,7 +20,7 @@ Instructions:
 
 2. Download the code
 
-         https://github.com/roy-cascadeo/sch-elk-orchestration.git
+         https://github.com/cascadeo/sch-elk-orchestration.git
 
 3. Create an IAM user for ELK. The Data Pipeline objects will be owned by this user. Pipelines aren't visible to other IAM users in the account so a generic IAM user should be used for management.
 
