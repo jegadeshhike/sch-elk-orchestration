@@ -45,9 +45,5 @@ In a node with Python boto installed (>=v2.33.0):
 
 6. Log into AWS as the IAM user owner to the AWS Data Pipeline console on the specified region.
 
-<<<<<<< HEAD
-7. Activate to run the pipeline.
-=======
-8. Make sure all instances in the Opswork stack are stopped. Activate to run the Pipeline.
->>>>>>> 6133398e0f175fa5c0008b7a88246c043db59074
+7. Make sure all instances in the Opswork stack are stopped. Activate to run the Pipeline.
 
