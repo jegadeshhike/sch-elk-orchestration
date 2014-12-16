@@ -1,49 +1,53 @@
 sch-elk-orchestration
 =====================
 
-Prerequisites:
+High-level Description
+---------------------
+ - Prepares the IAM roles. Sets their permission and trust policies which are defined under iam_policies folder
+ - Prepares the custom monitoring scripts and uploads them to S3
+ - Drops and rebuilds the Data Pipeline
+ - Creates Cloudwatch alarm for each opsworks layer - shipper, redis and indexer
 
-  - Parts of the ELK System already in place:
+Prerequisites
+-------------
+ - Parts of the ELK System already in place:
     - Opswork stack created, with shipper, redis and indexer layers
     - Logstash Buffer Custom CloudWatch Metric
     - S3 bucket/path of the logs to be processed by Shipper
 
-  - Prepare the following:
+ - Prepare the following:
     - SNS Topic ARN used for notification
     - S3 bucket/path created where custom scripts will be stored
     - S3 bucket/path created where DataPipeline will store logs
+    - Node with Python boto installed (>=v2.33.0)
 
+Usage
+-----
+In a node with Python boto installed (>=v2.33.0):
 
-Instructions:
+1. Download the code.
 
-1. Python Boto at least v2.33.0 is needed to run. One can use the latest Amazon AMI Linux provided by AWS.
+         git clone https://github.com/cascadeo/sch-elk-orchestration.git
 
-2. Download the code
+2. Create an IAM user for ELK. The Data Pipeline objects will be owned by this user. Pipelines aren't visible to other IAM users in the account so a generic IAM user should be used for management. Reference: https://forums.aws.amazon.com/thread.jspa?threadID=138201.
 
-         https://github.com/cascadeo/sch-elk-orchestration.git
-
-3. Create an IAM user for ELK. The Data Pipeline objects will be owned by this user. Pipelines aren't visible to other IAM users in the account so a generic IAM user should be used for management.
-
-         https://forums.aws.amazon.com/thread.jspa?threadID=138201
-
-4. Configure IAM User.
+3. Configure IAM user and perform the following:
          - Generate access keys
-         - Set its permission policy to iam_policies/iam_user_policy
+         - Set its permission policy to iam_policies/iam_user_policy (https://github.com/cascadeo/sch-elk-orchestration/blob/master/iam_policies/iam_user_policy)
 
-5. Populate configuration cfg file with desired values. Descriptions are placed above the parameters as comments.
+	Note: If you wish your own IAM user account to own the pipeline, then ensure your IAM account has the required policies indicated above.
 
-6. Run the script
+4. Populate deploy_elk_orchestration.cfg configuration file with desired values. Descriptions are placed above the parameters as comments.
+
+5. Run the script.
 
          python deploy_elk_orchestration.py
 
-  
-     High level description of what the script does:
-       - Prepares the IAM roles. Sets their permission and trust policies which are defined under iam_policies folder
-       - Prepares the custom monitoring scripts and uploads them to S3
-       - Drops and rebuilds the Data Pipeline
-       - Creates Cloudwatch alarm for each opsworks layer - shipper, redis and indexer
+6. Log into AWS as the IAM user owner to the AWS Data Pipeline console on the specified region.
 
-7. Log on as your IAM User to the AWS Data Pipeline console on the specified region.
-
+<<<<<<< HEAD
+7. Activate to run the pipeline.
+=======
 8. Make sure all instances in the Opswork stack are stopped. Activate to run the Pipeline.
+>>>>>>> 6133398e0f175fa5c0008b7a88246c043db59074
 
