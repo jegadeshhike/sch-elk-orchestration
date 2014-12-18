@@ -8,9 +8,11 @@ import datetime
 import argparse
 
 parser = argparse.ArgumentParser()
-parser.add_argument('-r', '--region', default='us-east-1',
+parser.add_argument('-r', '--region',
+                    default='us-east-1',
                     type=str, help='AWS region')
-parser.add_argument('-ln', '--logstash_metric_namespace', default='Logstash',
+parser.add_argument('-ln', '--logstash_metric_namespace',
+                    default='Logstash',
                     type=str,
                     help='Custom Cloudwatch metric namespace used for ' +
                     'Logstash Buffer')
@@ -36,7 +38,7 @@ datapoints = cw.get_metric_statistics(period=60,
 for dp in datapoints:
     value = float(dp.get('Average'))
     if value > 0:
-        print('Found data point {}. Logstash Buffer is not empty.').format(
+        print('Found data point {0}. Logstash Buffer is not empty.').format(
             str(value))
         # A normal exit would return true to ShellCommandPrecondition
         exit(0)

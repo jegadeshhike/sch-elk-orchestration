@@ -3,32 +3,57 @@
 import time
 import boto.opsworks
 import argparse
+import os
 
 # Arguments
 parser = argparse.ArgumentParser()
-parser.add_argument('-r', '--region', default='us-east-1',
+parser.add_argument('-r', '--region',
+                    default='us-east-1',
                     type=str, help='AWS region')
+parser.add_argument('-o', '--opsworks_region',
+                    default='us-east-1',
+                    type=str, help='Opsworks region endpoint')
 parser.add_argument('-s', '--shipper_opsworks_layer_id',
                     default='9f1f1fa0-6a52-4227-8c54-76dd17873a27',
                     type=str, help='Opsworks ID of the Shipper Layer')
-parser.add_argument('-cd', '--cooldown_period', default=3,
+parser.add_argument('-cd', '--cooldown_period',
+                    default=3,
                     type=int, help='Cooldown period in minutes before ' +
                     'scale down of shipper')
+parser.add_argument('-en', '--elk_pipeline_metric_namespace',
+                    default='Pipeline1',
+                    type=str,
+                    help='Custom Cloudwatch metric namespace used for ' +
+                         'ELK Pipeline')
+parser.add_argument('-em', '--elk_pipeline_metric_name', default='ELK1',
+                    type=str,
+                    help='Custom Cloudwatch metric name used for ' +
+                    'ELK Pipeline')
 args = parser.parse_args()
 region = args.region
+opsworks_region = args.opsworks_region
 shipper_opsworks_layer_id = args.shipper_opsworks_layer_id
 cooldown_period_minutes = args.cooldown_period
+elk_pipeline_metric_name = args.elk_pipeline_metric_name
+elk_pipeline_metric_namespace = args.elk_pipeline_metric_namespace
 
 print 'Start time: ' + time.ctime()
+# Trigger population custom Cloudwatch metric for the pipeline
+os.system("echo '* * * * * /usr/bin/aws cloudwatch put-metric-data " +
+          "--metric-name " +
+          elk_pipeline_metric_name + " --namespace " +
+          elk_pipeline_metric_namespace +
+          " --value 1 --region " + region + "' | crontab -")
+
 
 # Wait for cooldown period for drain its buffer
 for i in range(0, cooldown_period_minutes):
-    print('{}:Waiting for cooldown period before scaling down. {} ' +
+    print('{0}:Waiting for cooldown period before scaling down. {1} ' +
           'minutes left ').format(time.ctime(), str(cooldown_period_minutes-i))
     time.sleep(60)
 
 # Get Status of the Opswork instances in Shipper layer
-opswork = boto.opsworks.connect_to_region(region)
+opswork = boto.opsworks.connect_to_region(opsworks_region)
 instances_to_stop = []
 
 print 'Checking status of Opsworks instances in Shipper Layer'
