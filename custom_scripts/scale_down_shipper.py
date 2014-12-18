@@ -45,34 +45,41 @@ os.system("echo '* * * * * /usr/bin/aws cloudwatch put-metric-data " +
           elk_pipeline_metric_namespace +
           " --value 1 --region " + region + "' | crontab -")
 
+try:
+    # Wait for cooldown period for drain its buffer
+    for i in range(0, cooldown_period_minutes):
+        print('{0}:Waiting for cooldown period before scaling down. {1} ' +
+              'minutes left ').format(time.ctime(), str(cooldown_period_minutes-i))
+        time.sleep(60)
 
-# Wait for cooldown period for drain its buffer
-for i in range(0, cooldown_period_minutes):
-    print('{0}:Waiting for cooldown period before scaling down. {1} ' +
-          'minutes left ').format(time.ctime(), str(cooldown_period_minutes-i))
-    time.sleep(60)
+    # Get Status of the Opswork instances in Shipper layer
+    opswork = boto.opsworks.connect_to_region(opsworks_region)
+    instances_to_stop = []
 
-# Get Status of the Opswork instances in Shipper layer
-opswork = boto.opsworks.connect_to_region(opsworks_region)
-instances_to_stop = []
+    print 'Checking status of Opsworks instances in Shipper Layer'
+    instances = opswork.describe_instances(layer_id=shipper_opsworks_layer_id)
+    for key, value in instances.items():
+        for i in range(0, len(value)):
+            shipper_status = value[i].get('Status')
+            shipper_opswork_id = value[i].get('InstanceId')
 
-print 'Checking status of Opsworks instances in Shipper Layer'
-instances = opswork.describe_instances(layer_id=shipper_opsworks_layer_id)
-for key, value in instances.items():
-    for i in range(0, len(value)):
-        shipper_status = value[i].get('Status')
-        shipper_opswork_id = value[i].get('InstanceId')
+        if shipper_status != 'online':
+            raise Exception('Shipper instance with opsworks id ' +
+                            shipper_opswork_id +
+                            ' expected status is online. It is currently ' +
+                            shipper_status +
+                            '. Another process could already be working.')
 
-    if shipper_status != 'online':
-        raise Exception('Shipper instance with opsworks id ' +
-                        shipper_opswork_id +
-                        ' expected status is online. It is currently ' +
-                        shipper_status +
-                        '. Another process could already be working.')
+        instances_to_stop.append(shipper_opswork_id)
 
-    instances_to_stop.append(shipper_opswork_id)
-
-# Stop Shipper instance
-for instance in instances_to_stop:
-    print 'Stopping Shipper instance with opsworks id ' + instance
-    opswork.stop_instance(instance)
+    # Stop Shipper instance
+    for instance in instances_to_stop:
+        print 'Stopping Shipper instance with opsworks id ' + instance
+        opswork.stop_instance(instance)
+except:
+    # Flag end of pipeline execution
+    os.system("echo '' | crontab -")
+    os.system("/usr/bin/aws cloudwatch put-metric-data --metric-name " +
+    elk_pipeline_metric_name + " --namespace " +
+    elk_pipeline_metric_namespace + " --value=0 --region " + region)
+    raise
