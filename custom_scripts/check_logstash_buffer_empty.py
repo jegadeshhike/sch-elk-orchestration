@@ -64,8 +64,8 @@ for dp in datapoints:
     if value > 0:
         print ('Found datapoint {0}. Logstash Buffer is not empty.').format(
             str(value))
-    # An abnormal exit would return false to ShellCommandPrecondition
-    exit(1)
+        # An abnormal exit would return false to ShellCommandPrecondition
+        exit(1)
 
 # A normal exit would return true to ShellCommandPrecondition
 print 'Logstash Buffer is empty'
