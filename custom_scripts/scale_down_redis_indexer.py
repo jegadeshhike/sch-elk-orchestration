@@ -68,7 +68,7 @@ try:
                                 'currently ' + redis_status +
                                 ' . Another process could already be working.')
 
-        instances_to_stop.append(redis_opswork_id)
+            instances_to_stop.append(redis_opswork_id)
 
     # Stop Redis instance
     for instance in instances_to_stop:
