@@ -6,7 +6,7 @@ High-level Description
  - Prepares the IAM roles; sets their permission and trust policies as defined in the iam_policies folder
  - Prepares the custom monitoring scripts and uploads them to S3
  - Drops and rebuilds the Data Pipeline
- - Creates Cloudwatch alarm for each opsworks layer - shipper, redis and indexer
+ - Creates Cloudwatch alarm for the ELK Pipeline
 
 Prerequisites
 -------------
