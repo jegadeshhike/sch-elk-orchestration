@@ -184,6 +184,12 @@ def prepare_pipeline_object(definition):
     new_definition = new_definition.replace(
         '<elk_pipeline_metric_namespace>',
         config.get('cloudwatch', 'elk_pipeline_metric_namespace'))
+    new_definition = new_definition.replace(
+        '<pipeline_log_location>',
+        config.get('data_pipeline', 'pipeline_log_location'))
+    new_definition = new_definition.replace(
+        '<pipeline_timeout_minutes>',
+        config.get('data_pipeline', 'pipeline_timeout_minutes'))
     return new_definition
 
 
@@ -233,6 +239,8 @@ def build_datapipeline():
         config.get('data_pipeline', 'pipeline_settings'),
         config.get('data_pipeline', 'pipeline_alarm_failure'),
         config.get('data_pipeline', 'pipeline_alarm_success'),
+        config.get('data_pipeline', 'pipeline_alarm_start'),
+        config.get('data_pipeline', 'pipeline_terminate'),
         config.get('data_pipeline',
                    'pipeline_precondition_logstash_buffer_empty'),
         config.get('data_pipeline', 'pipeline_precondition_s3_empty'),
@@ -240,6 +248,7 @@ def build_datapipeline():
         config.get('data_pipeline', 'pipeline_precondition_s3_not_empty'),
         config.get('data_pipeline',
                    'pipeline_activity_scaleup_shipper_redis'),
+        config.get('data_pipeline', 'pipeline_activity_wait_for_logs'),
         config.get('data_pipeline', 'pipeline_activity_scaleup_indexer'),
         config.get('data_pipeline', 'pipeline_activity_scaledown_shipper'),
         config.get('data_pipeline',

@@ -74,8 +74,9 @@ try:
                 status = value[i].get('Status')
                 hostname = value[i].get('Hostname')
                 instance_id = value[i].get('InstanceId')
-                print('{0}:Instance  {1} in {2} status.').format(time.ctime(),
-                                                              hostname, status)
+                print('{0}:Instance  {1}' +
+                      ' in {2} status.').format(time.ctime(),
+                                                hostname, status)
 
                 # Stop the instances and
                 # raise error if at least one of them failed

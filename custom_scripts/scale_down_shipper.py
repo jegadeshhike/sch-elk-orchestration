@@ -49,7 +49,8 @@ try:
     # Wait for cooldown period for drain its buffer
     for i in range(0, cooldown_period_minutes):
         print('{0}:Waiting for cooldown period before scaling down. {1} ' +
-              'minutes left ').format(time.ctime(), str(cooldown_period_minutes-i))
+              'minutes left ').format(time.ctime(),
+                                      str(cooldown_period_minutes-i))
         time.sleep(60)
 
     # Get Status of the Opswork instances in Shipper layer
@@ -80,6 +81,6 @@ except:
     # Flag end of pipeline execution
     os.system("echo '' | crontab -")
     os.system("/usr/bin/aws cloudwatch put-metric-data --metric-name " +
-    elk_pipeline_metric_name + " --namespace " +
-    elk_pipeline_metric_namespace + " --value=0 --region " + region)
+              elk_pipeline_metric_name + " --namespace " +
+              elk_pipeline_metric_namespace + " --value=0 --region " + region)
     raise
