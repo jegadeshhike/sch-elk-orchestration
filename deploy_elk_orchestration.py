@@ -144,7 +144,7 @@ def upload_custom_script(filename):
     if k is None:
         k = bucket.new_key(
             config.get('custom_script', 's3_bucket_directory') + filename)
-    k.set_contents_from_filename('temp/' + filename)
+    k.set_contents_from_filename('temp/' + filename, encrypt_key=True)
 
     print 'Uploaded script ' + str(k)
 
