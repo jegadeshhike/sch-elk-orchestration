@@ -38,7 +38,7 @@
      "iam:ListInstanceProfiles",
      "cloudwatch:*",
      "datapipeline:DescribeObjects",
-     "datapipeline:EvaluateExpression"
+     "datapipeline:EvaluateExpression",
      "ec2:AuthorizeSecurityGroupIngress",
      "ec2:CancelSpotInstanceRequests",
      "ec2:CreateSecurityGroup",
