@@ -39,6 +39,17 @@
      "cloudwatch:*",
      "datapipeline:DescribeObjects",
      "datapipeline:EvaluateExpression"
+     "ec2:AuthorizeSecurityGroupIngress",
+     "ec2:CancelSpotInstanceRequests",
+     "ec2:CreateSecurityGroup",
+     "ec2:DeleteTags",
+     "ec2:Describe*",
+     "ec2:ModifyImageAttribute",
+     "ec2:ModifyInstanceAttribute",
+     "ec2:RequestSpotInstances",
+     "s3:CreateBucket",
+     "sdb:BatchPutAttributes",
+     "sdb:Select*"
    ],
    "Effect": "Allow",
    "Resource": [

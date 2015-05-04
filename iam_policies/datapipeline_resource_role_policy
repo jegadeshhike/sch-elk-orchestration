@@ -39,7 +39,14 @@
      "iam:GetRole",
      "iam:GetRolePolicy",
      "iam:ListInstanceProfiles",
-     "cloudwatch:*"
+     "cloudwatch:*",
+     "dynamodb:*", 
+     "ec2:Describe*", 
+     "rds:Describe*",
+     "s3:*", 
+     "sdb:*",
+     "sns:*",
+     "sqs:*"
   ],
   "Effect": "Allow",
   "Resource": [
