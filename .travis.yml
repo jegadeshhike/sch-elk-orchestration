@@ -1,7 +1,7 @@
 language: python
 python:
 - '2.7'
-- '3.0'
+- '3.4'
 install:
 - pip install flake8 --use-mirrors
 - pip install -r requirements.txt
@@ -10,4 +10,4 @@ before_script:
 script: nosetests
 notifications:
   slack:
-    secure: VpvXEX0d/vzCPfMYVGezTZ++eKjSzP06QnDHwMt0ppuk+2sO0ctiEjtNtTLCL4dSCl/TaIN2i1vdFDOSgtWnGh3bE2UQEm+3NO/UKtme9o+cnG6wpkgGlKvhpTbEpjWIF4/dNn36cyN5+EiNtEnOxzkuvDM0A7fQlXawie36wPM=
+    secure: kkm3pxhZbbjsTZOHdTPUF5kneXXHOwrPs5f+rXkkQDHEJeYeDt6jekLlNZd1iVv6/iEbpxDJP3NIM9KMUmFb/7pcluRR7TbE4KG4TJVDJfqCgPdwhKjnFOGdStDdO+OA1pTDNc2Q2cQmsGRehZVp8j3ZC+YQn/AOWmoZyAG+Tf4=
