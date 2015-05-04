@@ -31,21 +31,27 @@ In a node with Python boto installed (>=v2.33.0):
 
          git clone https://github.com/cascadeo/sch-elk-orchestration.git
 
-2. Create an IAM user for ELK. The Data Pipeline objects will be owned by this user. Pipelines aren't visible to other IAM users in the account so it is suggested that a generic IAM user be used for management. Reference: https://forums.aws.amazon.com/thread.jspa?threadID=138201.
+2. Set Boto config file (~/.boto) to avoid SSL errors on buckets with dots in the name
+         - 
+```[s3]
+calling_format = boto.s3.connection.OrdinaryCallingFormat
+```
 
-3. Configure IAM user and perform the following:
+3. Create an IAM user for ELK. The Data Pipeline objects will be owned by this user. Pipelines aren't visible to other IAM users in the account so it is suggested that a generic IAM user be used for management. Reference: https://forums.aws.amazon.com/thread.jspa?threadID=138201.
+
+4. Configure IAM user and perform the following:
          - Generate access keys
          - Set its permission policy to iam_policies/iam_user_policy (https://github.com/cascadeo/sch-elk-orchestration/blob/master/iam_policies/iam_user_policy)
 
 	Note: If you wish your own IAM user account to own the pipeline, then ensure your IAM account has the required policies indicated above.
 
-4. Populate deploy_elk_orchestration.cfg configuration file with desired values. Descriptions are placed above the parameters as comments.
+5. Populate deploy_elk_orchestration.cfg configuration file with desired values. Descriptions are placed above the parameters as comments.
 
-5. Run the script.
+6. Run the script.
 
          python deploy_elk_orchestration.py
 
-6. Log into the AWS Data Pipeline console as the IAM user that owns the pipeline, in the specified region.
+7. Log into the AWS Data Pipeline console as the IAM user that owns the pipeline, in the specified region.
 
-7. Make sure all instances in the Opswork stack are stopped. Activate to run the Pipeline.
+8. Make sure all instances in the Opswork stack are stopped. Activate to run the Pipeline.
 
