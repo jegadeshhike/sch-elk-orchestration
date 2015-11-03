@@ -5,6 +5,7 @@
 import boto.opsworks
 import boto.s3
 import argparse
+from boto.s3.connection import OrdinaryCallingFormat 
 
 # Arguments
 parser = argparse.ArgumentParser()
@@ -68,7 +69,7 @@ check_instance_status(opswork=opswork,
                       layername='Indexer')
 
 # Check S3 path
-s3 = boto.s3.connect_to_region(region)
+s3 = boto.s3.connect_to_region(region, calling_format=OrdinaryCallingFormat())
 for item in s3.get_bucket(s3_bucket).list(prefix=path):
     # An object detected inside s3 path
     if item.name != path:
