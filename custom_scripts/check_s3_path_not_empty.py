@@ -5,7 +5,7 @@
 import boto.opsworks
 import boto.s3
 import argparse
-from boto.s3.connection import OrdinaryCallingFormat 
+from boto.s3.connection import OrdinaryCallingFormat
 
 # Arguments
 parser = argparse.ArgumentParser()
