@@ -170,7 +170,7 @@
             "arn:aws:iam:",
             {"Ref": "AWS::AccountId"},
             {"Ref": "myKibanaSSLCert"}
-          ]]},
+          ]]}
         }, {
           "InstancePort": "80",
           "InstanceProtocol": "http",
