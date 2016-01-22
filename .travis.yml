@@ -4,7 +4,7 @@ python:
 install:
 - pip install flake8 --use-mirrors
 before_script:
-- flake8 custom_scripts\*.py
+- flake8 custom_scripts/*.py
 script: nosetests
 notifications:
   slack:
