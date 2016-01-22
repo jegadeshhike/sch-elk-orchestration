@@ -39,7 +39,7 @@
     },
     "KibanaListenerHostname": {
       "Type": "String",
-      "Default": "kibana4",
+      "Default": "kibana",
       "Description": "Enter the short hostname to use for the Kibana listener (must match certificate)."
     },
     "PublicSubnets": {
@@ -74,7 +74,7 @@
     },
     "ElasticsearchCluster": {
       "Type": "String",
-      "Default": "elktest",
+      "Default": "elkrun",
       "Description": "Enter the name of the Elasticsearch cluster."
     },
     "ElasticsearchVersion": {
