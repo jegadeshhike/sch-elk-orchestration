@@ -1,0 +1,716 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "Create the ELK log load pipeline.",
+  "Metadata": {
+    "AWS::CloudFormation::Interface": {
+      "ParameterGroups": [{
+        "Label": { "default": "Network"},
+        "Parameters": [ "VpcID", "SubnetID", "SecurityGroupID", "KeyName" ]
+      }, {
+        "Label": { "default": "Pipeline Config"},
+        "Parameters": [ "PipelineActivate", "StartTime", "RunPeriod", "InfrastructureBucket", "SNSTopic", "WorkerAMI", "WorkerInstanceType", "PipelineStatusMetric" ]
+      }, {
+        "Label": { "default": "ELK Config"},
+        "Parameters": [ "LSInputS3Bucket", "LSInputS3Prefix", "OpsworksShipperLayerID", "OpsworksRedisLayerID", "OpsworksIndexerLayerID" ]
+      }]
+    }
+  },
+  "Parameters": {
+    "PipelineStatusMetric": {
+      "Type": "String",
+      "Default": "ELK_Pipeline_Status",
+      "Description": "Enter the CW metric name to use for monitoring ELK overruns. Will be created by CFN."
+    },
+    "SNSTopic": {
+      "Type": "String",
+      "Default": "DataPipeline_Notifications",
+      "Description": "Name of pre-existing SNS notification topic"
+    },
+    "LSInputS3Bucket": {
+      "Type": "String",
+      "Default": "elkinput-cism-sch",
+      "Description": "Enter the S3 bucket of the ELK input files."
+    },
+    "LSInputS3Prefix": {
+      "Type": "String",
+      "Default": "/2-ELK/input",
+      "Description": "Enter the prefix for the ELK input files."
+    },
+    "RunPeriod": {
+      "Type": "String",
+      "Default": "24 Hours",
+      "Description": "Frequency to run the pipeline"
+    },
+    "PipelineActivate": {
+      "Type": "String",
+      "Default": "false",
+      "Description": "Should the pipeline be activated on creation?",
+      "AllowedValues": ["false", "true"],
+      "ConstraintDescription": "Must be either true or false."
+    },
+    "AuditlogBucket": {
+      "Type": "String",
+      "Default": "auditlogs-cism-sch",
+      "Description": "Enter the pre-existing bucket to which logs should be sent."
+    },
+    "StartTime": {
+      "Type": "String",
+      "Default": "2016-01-20T10:00:00",
+      "Description": "Enter the date and time (in UTC) for the initial run."
+    },
+    "WorkerInstanceType": {
+      "Type": "String",
+      "Default": "t2.micro",
+      "Description": "EC2 instance type to use for the pipeline worker node."
+    },
+    "KeyName": {
+      "Description": "Enter the EC2 key pair for the pipeline worker node.",
+      "Default": "davidski",
+      "Type": "AWS::EC2::KeyPair::KeyName",
+      "ConstraintDescription": "Must be the name of an existing EC2 KeyPair."
+    },
+    "WorkerAMI": {
+      "Type": "AWS::EC2::Image::Id",
+      "Default": "ami-9ff7e8af",
+      "Description": "Enter the AMI image ID for the ELK DataPipeline control node."
+    },
+    "SecurityGroupID": {
+      "Type": "AWS::EC2::SecurityGroup::Id",
+      "Default": "sg-fdf41998",
+      "Description": "Enter the security group ID"
+    },
+    "SubnetID": {
+      "Type": "AWS::EC2::Subnet::Id",
+      "Default": "subnet-1d120269",
+      "Description": "Enter the subnet ID in which to place the pipeline worker node."
+    },
+    "VpcID": {
+      "Type": "AWS::EC2::VPC::Id",
+      "Default": "vpc-d07f66b2",
+      "Description": "Enter the VPC ID in which to run."
+    },
+    "InfrastructureBucket": {
+      "Type": "String",
+      "Default": "infrastructure-cism-sch",
+      "Description": "Enter the pre-existing bucket for infrastructure code."
+    },
+    "OpsworksShipperLayerID": {
+      "Type": "String",
+      "Default": "109b9004-ecf1-4d37-b85d-9a71e7819092",
+      "Description": "Enter the ID of the OpsWorks LS Shipper layer"
+    },
+    "OpsworksRedisLayerID": {
+      "Type": "String",
+      "Default": "441e14d7-de88-4d64-830e-46cfd4720247",
+      "Description": "Enter the ID of the OpsWorks Redis layer"
+    },
+    "OpsworksIndexerLayerID": {
+      "Type": "String",
+      "Default": "46970b3b-f15c-47b9-872f-90601e5e085e",
+      "Description": "Enter the ID of the OpsWorks LS Indexer layer"
+    }
+  },
+  "Resources": {
+    "myCloudWatchAlarm": {
+      "Type": "AWS::CloudWatch::Alarm",
+      "Properties": {
+        "AlarmName": {"Ref": "PipelineStatusMetric"},
+        "ActionsEnabled": true,
+        "AlarmActions": [{"Fn::Join": [":", [
+              "arn:aws:sns",
+              {"Ref": "AWS::Region"},
+              {"Ref": "AWS::AccountId"},
+              {"Ref": "SNSTopic"}
+         ]]}],
+        "Namespace": "Logstash",
+        "MetricName": {"Ref": "PipelineStatusMetric"},
+        "Statistic": "Minimum",
+        "ComparisonOperator": "GreaterThanThreshold",
+        "Threshold": "0",
+        "Period": "60",
+        "EvaluationPeriods": "120"
+      }
+    },
+    "myPipeline": {
+      "Type": "AWS::DataPipeline::Pipeline",
+      "Properties": {
+        "Activate": { "Ref": "PipelineActivate" },
+        "Description": "ELK processing pipeline",
+        "Name": "ELK",
+        "PipelineTags": [{
+          "Key": "project",
+          "Value": "elk"
+        }],
+        "PipelineObjects": [
+        {
+          "Name": "Worker Script Repository",
+          "Id": "script_repository",
+          "Fields": [{
+            "Key": "type",
+            "StringValue": "S3DataNode"
+          }, {
+            "Key": "directoryPath",
+            "StringValue": {
+              "Fn::Join": ["", [
+              "s3://", {"Ref": "InfrastructureBucket"}, 
+              "/bin"
+              ]]
+            }
+          }]
+        }, {
+          "Name": "Wait for Logs", 
+          "Id": "ActivityId_KaYNf", 
+          "Fields": [{
+            "Key": "type",
+            "StringValue": "ShellCommandActivity"
+          }, {
+            "Key": "onLateAction",
+            "RefValue": "ActionId_rRqPU"
+          }, {
+            "Key": "lateAfterTimeout",
+            "StringValue": "60 Minutes"
+          }, {
+            "Key": "onFail",
+            "RefValue": "ActionId_BEaxi"
+          }, {
+            "Key": "onSuccess",
+            "RefValue": "ActionId_zVzpg"
+          }, {
+            "Key": "command",
+            "StringValue": "echo 'Pipeline Starts'"
+          }, {
+            "Key": "maxActiveInstances",
+            "StringValue": "1"
+          }, {
+            "Key": "maximumRetries",
+            "StringValue": "0"
+          }, {
+            "Key": "schedule",
+            "RefValue": "DefaultSchedule"
+          }, {
+            "Key": "runsOn",
+            "RefValue": "ResourceId_ht9V8"
+          }]
+        }, {
+          "Name": "Notify Start", 
+          "Id": "ActionId_zVzpg", 
+          "Fields": [{
+            "Key": "type",
+            "StringValue": "SnsAlarm"
+          }, {
+            "Key": "role",
+            "StringValue": "DataPipelineELKRole"
+          }, { 
+            "Key": "topicArn",
+            "StringValue": {"Fn::Join": [":", [
+              "arn:aws:sns",
+              {"Ref": "AWS::Region"},
+              {"Ref": "AWS::AccountId"},
+              {"Ref": "SNSTopic"}
+            ]]}
+          }, {
+            "Key": "subject",
+            "StringValue": "AWS Data Pipeline - ELK"
+          }, { 
+            "Key": "message",
+            "StringValue": "ELK workflow starting"
+          }]
+        }, {
+          "Name": "Check S3 Empty", 
+          "Id": "PreconditionId_WIKik",
+          "Fields": [{
+            "Key": "type",
+            "StringValue": "S3PrefixNotEmpty"
+          }, {
+            "Key": "retryDelay",
+            "StringValue": "30 Seconds"
+          }, {
+            "Key": "s3Prefix",
+            "StringValue": {"Fn::Join": ["", [
+              "s3://", {"Ref": "LSInputS3Bucket"}, 
+              {"Ref": "LSInputS3Prefix"}
+            ]]}
+          }]
+        }, {
+          "Name": "Scale up Shipper and Redis", 
+          "Id": "ActivityId_EcIg9", 
+          "Fields": [ {
+            "Key": "type",
+            "StringValue": "ShellCommandActivity"
+          }, {
+            "Key": "precondition",
+            "RefValue": "PreconditionId_WIKik"
+          }, {
+            "Key": "maxActiveInstances",
+            "StringValue": "1"
+          }, {
+            "Key": "schedule",
+            "RefValue": "DefaultSchedule"
+          }, {
+            "Key": "onFail",
+            "RefValue": "ActionId_BEaxi"
+          }, {
+            "Key": "input",
+            "RefValue": "script_repository"
+          }, {
+            "Key": "stage",
+            "StringValue": "true"
+          }, {
+            "Key": "command",
+            "StringValue": "python ${INPUT1_STAGING_DIR}/scale_up_shipper_redis.py $1 $2 $3 $4 $5 $6"
+          }, {
+            "Key": "scriptArgument",
+            "StringValue": {"Fn::Join": ["", [
+              "-s ", {"Ref": "OpsworksShipperLayerID"},
+              " ",
+              "-e ", {"Ref": "OpsworksRedisLayerID"},
+              " ",
+              "-em ", {"Ref": "PipelineStatusMetric"}
+            ]]}
+          }, {
+            "Key": "dependsOn",
+            "RefValue": "ActivityId_KaYNf"
+          }, {
+            "Key": "maximumRetries",
+            "StringValue": "0"
+          }, {
+            "Key": "runsOn",
+            "RefValue": "ResourceId_ht9V8"
+          }]
+        }, {
+          "Name": "Wait for Logstash Buffer to Have Keys", 
+          "Id": "ActivityId_1yIWo",
+          "Fields": [{
+            "Key": "type",
+            "StringValue": "ShellCommandActivity"
+          }, {
+            "Key": "input",
+            "RefValue": "script_repository"
+          }, {
+            "Key": "stage",
+            "StringValue": "true"
+          }, {
+            "Key": "stdout",
+            "StringValue": {"Fn::Join": ["", [
+              "s3://",
+              {"Ref": "AuditlogBucket"}, 
+              "/logs/datapipeline/#{name}/stdout.log"
+            ]]}
+          },{
+            "Key": "command",
+            "StringValue": "python ${INPUT1_STAGING_DIR}/waitfor_logstash_buffer_not_empty.py"
+          }, {
+            "Key": "retryDelay",
+            "StringValue": "30 Seconds"
+          }, {
+            "Key": "schedule",
+            "RefValue": "DefaultSchedule"
+          }, {
+            "Key": "dependsOn",
+            "RefValue": "ActivityId_EcIg9"
+          }, {
+            "Key": "runsOn",
+            "RefValue": "ResourceId_ht9V8"
+          }]
+        }, {
+          "Name": "Scale up Indexer", 
+          "Id": "ActivityId_lsiup", 
+          "Fields": [{
+            "Key": "type",
+            "StringValue": "ShellCommandActivity"
+          }, {
+            "Key": "maxActiveInstances",
+            "StringValue": "1"
+          }, {
+            "Key": "dependsOn",
+            "RefValue": "ActivityId_1yIWo"
+          }, {
+            "Key": "onFail",
+            "RefValue": "ActionId_BEaxi"
+          },  {
+            "Key": "input",
+            "RefValue": "script_repository"
+          }, {
+            "Key": "stage",
+            "StringValue": "true"
+          }, {
+            "Key": "command",
+            "StringValue": "python ${INPUT1_STAGING_DIR}/scale_up_indexer.py $1 $2 $3 $4"
+          }, {
+            "Key": "scriptArgument",
+            "StringValue": {"Fn::Join": ["", [
+              "-i ", {"Ref": "OpsworksIndexerLayerID"},
+              " ",
+              "-em ", {"Ref": "PipelineStatusMetric"}
+            ]]}
+          }, {
+            "Key": "dependsOn",
+            "RefValue": "ActivityId_KaYNf"
+          },{
+            "Key": "maximumRetries",
+            "StringValue": "0" 
+          }, {
+            "Key": "schedule",
+            "RefValue": "DefaultSchedule"
+          }, {
+            "Key": "runsOn",
+            "RefValue": "ResourceId_ht9V8"
+          }]
+        }, {
+          "Name": "Check Logstash Buffer Is Empty", 
+          "Id": "ActivityId_ZxKz2",
+          "Fields": [{
+            "Key": "type",
+            "StringValue": "ShellCommandActivity"
+          }, {
+            "Key": "input",
+            "RefValue": "script_repository"
+          }, {
+            "Key": "stage",
+            "StringValue": "true"
+          }, { 
+            "Key": "schedule",
+            "RefValue": "DefaultSchedule"
+          }, {
+            "Key": "stdout",
+            "StringValue": {"Fn::Join": ["", [
+              "s3://",
+              {"Ref": "AuditlogBucket"}, 
+              "/logs/datapipeline/#{name}/stdout.log"
+            ]]}
+          }, { 
+            "Key": "stderr",
+            "StringValue": {"Fn::Join": ["", [
+              "s3://",
+              {"Ref": "AuditlogBucket"}, 
+              "/logs/datapipeline/#{name}/stderr.log"
+            ]]}
+          }, {
+            "Key": "retryDelay",
+            "StringValue": "30 Seconds"
+          }, {
+            "Key": "command",
+            "StringValue": "python ${INPUT1_STAGING_DIR}/waitfor_logstash_buffer_empty.py $1 $2"
+          }, {
+            "Key": "scriptArgument",
+            "StringValue": {"Fn::Join": ["", [
+              "-i ", {"Ref": "OpsworksIndexerLayerID"}
+            ]]}
+          }, {
+            "Key": "dependsOn",
+            "RefValue": "ActivityId_lsiup"
+          }, {
+            "Key": "runsOn",
+            "RefValue": "ResourceId_ht9V8"
+          }]
+        }, {
+          "Name": "Scale down Redis and Indexer", 
+          "Id": "ActivityId_OdpYE", 
+          "Fields": [{
+            "Key": "type",
+            "StringValue": "ShellCommandActivity"
+          }, {
+            "Key": "input",
+            "RefValue": "script_repository"
+          }, {
+            "Key": "stage",
+            "StringValue": "true"
+          }, {
+            "Key": "maxActiveInstances",
+            "StringValue": "1"
+          }, {
+            "Key": "onFail",
+            "RefValue": "ActionId_BEaxi"
+          }, {
+            "Key": "command",
+            "StringValue": "python ${INPUT1_STAGING_DIR}/scale_down_redis_indexer.py $1 $2 $3 $4 $5 $6"
+          }, {
+            "Key": "scriptArgument",
+            "StringValue": {"Fn::Join": ["", [
+              "-i ", {"Ref": "OpsworksIndexerLayerID"},
+              " ",
+              "-e ", {"Ref": "OpsworksRedisLayerID"},
+              " ",
+              "-em ", {"Ref": "PipelineStatusMetric"}
+            ]]}
+          }, {
+            "Key": "dependsOn",
+            "RefValue": "ActivityId_ZxKz2"
+          }, {
+            "Key": "dependsOn",
+            "RefValue": "ActivityId_lsiup"
+          }, {
+            "Key": "maximumRetries",
+            "StringValue": "0"
+          }, {
+            "Key": "schedule",
+            "RefValue": "DefaultSchedule"
+          }, {
+            "Key": "runsOn",
+            "RefValue": "ResourceId_ht9V8"
+          }]
+        }, {
+          "Name": "Notify Failure", 
+          "Id": "ActionId_BEaxi", 
+          "Fields": [{
+            "Key": "type",
+            "StringValue": "SnsAlarm"
+          }, {
+            "Key": "role",
+            "StringValue": "DataPipelineELKRole"
+          },{
+            "Key": "topicArn",
+            "StringValue": {"Fn::Join": [":", [
+              "arn:aws:sns",
+              {"Ref": "AWS::Region"},
+              {"Ref": "AWS::AccountId"},
+              {"Ref": "SNSTopic"}
+            ]]}
+          }, {
+            "Key": "subject",
+            "StringValue": "AWS Data Pipeline - ELK"
+          }, {
+            "Key": "message",
+            "StringValue": "ELK Failed"
+          }]
+        }, {
+          "Name": "Run Schedule",
+          "Id": "DefaultSchedule",
+          "Fields": [{
+            "Key": "type",
+            "StringValue": "Schedule"
+          }, {
+            "Key": "period",
+            "StringValue": {"Ref": "RunPeriod"}
+          }, {
+            "Key": "startDateTime",
+            "StringValue": {"Ref": "StartTime"}
+          }]
+        }, {
+          "Name": "Notify Success", 
+          "Id": "ActionId_kKmEb", 
+          "Fields": [ {
+            "Key": "type",
+            "StringValue": "SnsAlarm"
+          }, {
+            "Key": "role",
+            "StringValue": "DataPipelineELKRole"
+          }, {
+            "Key": "topicArn",
+            "StringValue": {"Fn::Join": [":", [
+              "arn:aws:sns",
+              {"Ref": "AWS::Region"},
+              {"Ref": "AWS::AccountId"},
+              {"Ref": "SNSTopic"}
+            ]]}
+          }, {
+            "Key": "subject",
+            "StringValue": "AWS Data Pipeline - ELK"
+          }, {
+            "Key": "message",
+            "StringValue": "ELK Workflow Completed Successfully"
+          }]
+        }, {
+          "Name": "Default", 
+          "Id": "Default",
+          "Fields": [{
+            "Key": "type",
+            "StringValue": "Default"
+          }, {
+            "Key": "pipelineLogUri",
+            "StringValue": {"Fn::Join": ["", [
+              "s3://",
+              {"Ref": "AuditlogBucket"}, 
+              "/logs/datapipeline/"
+            ]]}
+          }, {
+            "Key": "failureAndRerunMode",
+            "StringValue": "CASCADE"
+          }, {
+            "Key": "resourceRole",
+            "StringValue": "DataPipelineELKResourceRole"
+          }, {
+            "Key": "schedule",
+            "RefValue": "DefaultSchedule"
+          }, {
+            "Key": "role",
+            "StringValue": "DataPipelineELKRole"
+          }, {
+            "Key": "scheduleType",
+            "StringValue": "cron"
+          }]
+        }, {
+          "Name": "Cancel ELK Pipeline",
+          "Id": "ActionId_rRqPU",
+          "Fields": [{
+            "Key": "type",
+            "StringValue": "Terminate"
+          }]
+        }, {
+          "Name": "Wait for Emptying of S3 Input Directory", 
+          "Id": "ActivityId_s3empty",
+          "Fields": [{
+            "Key": "type",
+            "StringValue": "ShellCommandActivity"
+          }, {
+            "Key": "input",
+            "RefValue": "script_repository"
+          }, {
+            "Key": "stage",
+            "StringValue": "true"
+          }, {
+            "Key": "stdout",
+            "StringValue": {"Fn::Join": ["", [
+              "s3://",
+              {"Ref": "AuditlogBucket"}, 
+              "/logs/datapipeline/#{name}/stdout.log"
+            ]]}
+          },{
+            "Key": "command",
+            "StringValue": "python ${INPUT1_STAGING_DIR}/waitfor_s3_path_empty.py $1 $2 $3 $4 $5 $6"
+          }, {
+            "Key": "scriptArgument",
+            "StringValue": {"Fn::Join": ["", [
+              "-s ", {"Ref": "OpsworksShipperLayerID"},
+              " ",
+              "-sb ", {"Ref": "LSInputS3Bucket"},
+              " ",
+              "-sp ", {"Ref": "LSInputS3Prefix"}
+            ]]}
+          }, {
+            "Key": "retryDelay",
+            "StringValue": "30 Seconds"
+          }, {
+            "Key": "schedule",
+            "RefValue": "DefaultSchedule"
+          }, {
+            "Key": "dependsOn",
+            "RefValue": "ActivityId_EcIg9"
+          }, {
+            "Key": "runsOn",
+            "RefValue": "ResourceId_ht9V8"
+          }]
+        }, {
+          "Name": "Scale down Shipper", 
+          "Id": "ActivityId_BHxPl", 
+          "Fields": [{
+            "Key": "type",
+            "StringValue": "ShellCommandActivity"
+          }, {
+            "Key": "maxActiveInstances",
+            "StringValue": "1"
+          }, {
+            "Key": "onFail",
+            "RefValue": "ActionId_BEaxi"
+          }, {
+            "Key": "input",
+            "RefValue": "script_repository"
+          }, {
+            "Key": "stage",
+            "StringValue": "true"
+          }, {
+            "Key": "command",
+            "StringValue": "python ${INPUT1_STAGING_DIR}/scale_down_shipper.py $1 $2 $3 $4"
+          }, {
+            "Key": "scriptArgument",
+            "StringValue": {"Fn::Join": ["", [
+              "-s ", {"Ref": "OpsworksShipperLayerID"},
+              " ",
+              "-em ", {"Ref": "PipelineStatusMetric"}
+            ]]}
+          }, {
+            "Key": "dependsOn",
+            "RefValue": "ActivityId_s3empty"
+          }, {
+            "Key": "maximumRetries",
+            "StringValue": "0"
+          }, {
+            "Key": "schedule",
+            "RefValue": "DefaultSchedule"
+          }, {
+            "Key": "runsOn",
+            "RefValue": "ResourceId_ht9V8"
+          }]
+        }, {
+          "Name": "Control Instance", 
+          "Id": "ResourceId_ht9V8", 
+          "Fields": [{
+            "Key": "type",
+            "StringValue": "Ec2Resource"
+          }, {
+            "Key": "maxActiveInstances",
+            "StringValue": "1"
+          }, {
+            "Key": "terminateAfter",
+            "StringValue": "24 Hours"
+          },{
+            "Key": "resourceRole",
+            "StringValue": "DataPipelineELKResourceRole"
+          }, {
+            "Key": "imageId",
+            "StringValue": {"Ref": "WorkerAMI"}
+          }, {
+            "Key": "keyPair",
+            "StringValue": {"Ref": "KeyName"}
+          }, {
+            "Key": "role",
+            "StringValue": "DataPipelineELKRole"
+          }, {
+            "Key": "subnetId",
+            "StringValue": {"Ref": "SubnetID"}
+          }, {
+            "Key": "region",
+            "StringValue": "us-west-2"
+          }, {
+            "Key": "securityGroupIds",
+            "StringValue": {"Ref": "SecurityGroupID"}
+          },{
+            "Key": "instanceType",
+            "StringValue": {"Ref": "WorkerInstanceType"}
+          }, {
+            "Key": "associatePublicIpAddress",
+            "StringValue": "false"
+          }]
+        }, {
+          "Name": "Notification Activity", 
+          "Id": "ActivityId_YGYLL", 
+          "Fields": [ {
+            "Key": "type",
+            "StringValue": "ShellCommandActivity"
+          }, {
+            "Key": "maxActiveInstances",
+            "StringValue": "1"
+          },{
+            "Key": "onFail",
+            "RefValue": "ActionId_BEaxi"
+          }, {
+            "Key": "onSuccess",
+            "RefValue": "ActionId_kKmEb"
+          }, {
+            "Key": "command",
+            "StringValue": {"Fn::Join": ["", [
+              "echo '' | crontab -;/usr/bin/aws cloudwatch put-metric-data --metric-name ", 
+              {"Ref": "PipelineStatusMetric"}, 
+              " --namespace Logstash --value=0 --region us-west-2"
+            ]]}
+          }, {
+            "Key": "dependsOn",
+            "RefValue": "ActivityId_BHxPl"
+          }, {
+            "Key": "dependsOn",
+            "RefValue": "ActivityId_OdpYE"
+          }, {
+            "Key": "maximumRetries",
+            "StringValue": "0" 
+          }, {
+            "Key": "schedule",
+            "RefValue": "DefaultSchedule"
+          }, {
+            "Key": "runsOn",
+            "RefValue": "ResourceId_ht9V8"
+          }]
+        }]
+      }
+    }
+  }
+}

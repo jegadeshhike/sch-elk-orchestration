@@ -7,13 +7,18 @@ High-level Description
 ---------------------
  - Prepares the IAM roles; sets their permission and trust policies as defined in the iam_policies folder
  - Prepares the custom monitoring scripts and uploads them to S3
- - Drops and rebuilds the Data Pipeline
+ - Prepares the Chef cookbooks for use in OpsWorks
+ - Creates the OpsWorks stack
+ - Creates the Data Pipeline for scheduled batch uploads
  - Creates Cloudwatch alarm for the ELK Pipeline
 
 Prerequisites
 -------------
+ - AWSCLI installed and configured
+ - Git installed and configured
+ - Chef-DK installed and configured
+
  - Parts of the ELK System already in place:
-    - Opswork stack created, with shipper, redis and indexer layers
     - Logstash Buffer Custom CloudWatch Metric
     - S3 bucket/path of the logs to be processed by Shipper
 
@@ -21,37 +26,46 @@ Prerequisites
     - SNS Topic ARN used for notification
     - S3 bucket/path created where custom scripts will be stored
     - S3 bucket/path created where DataPipeline will store logs
-    - Node with Python boto installed (>=v2.33.0)
 
 Usage
 -----
-In a node with Python boto installed (>=v2.33.0):
 
 1. Download the code.
 
-         git clone https://github.com/cascadeo/sch-elk-orchestration.git
+`git clone https://github.com/SCH-CISM/sch-elk-orchestration.git`
 
-2. Set Boto config file (~/.boto) to avoid SSL errors on buckets with dots in the name
-         - 
-```[s3]
-calling_format = boto.s3.connection.OrdinaryCallingFormat
-```
+2. Prepare the Chef cookbooks
 
-3. Create an IAM user for ELK. The Data Pipeline objects will be owned by this user. Pipelines aren't visible to other IAM users in the account so it is suggested that a generic IAM user be used for management. Reference: https://forums.aws.amazon.com/thread.jspa?threadID=138201.
+`cd .\cookbooks; berks package elk-cookbooks.tar.gz; cd ..`
 
-4. Configure IAM user and perform the following:
-         - Generate access keys
-         - Set its permission policy to iam_policies/iam_user_policy (https://github.com/cascadeo/sch-elk-orchestration/blob/master/iam_policies/iam_user_policy)
+3. Upload the Chef cookbooks to s3
 
-	Note: If you wish your own IAM user account to own the pipeline, then ensure your IAM account has the required policies indicated above.
+`aws s3 cp .\cookbooks\elk-cookbooks.tar.gz s3://YOUBUCKET/cookbooks/ --sse`
 
-5. Populate deploy_elk_orchestration.cfg configuration file with desired values. Descriptions are placed above the parameters as comments.
+2. Upload the contents of `custom_scripts` to the `bin` directory of your 
+infrastructure bucket.
 
-6. Run the script.
+`aws s3 cp .\custom_scripts\ s3://YOURBUCKET/bin --recursive --sse`
 
-         python deploy_elk_orchestration.py
+3. Upload the cloudformation templates to the `cloudformation` directory of your 
+infrastructure bucket.
 
-7. Log into the AWS Data Pipeline console as the IAM user that owns the pipeline, in the specified region.
+`aws s3 cp .\cloudformation\ s3://YOURBUCKET/cloudformation --recursive --sse`
 
-8. Make sure all instances in the Opswork stack are stopped. Activate to run the Pipeline.
+4. Create the IAM roles
 
+`aws cloudformation --stack-name STACKNAME --template-url https://s3-us-west-2.amazonaws.com/YOUBUCKET/cloudformation/elk-iam-roles.json --parmaeters ParameterKey=MaxMindLicenseKey,ParameterValue=YOURKEYSTRING`
+
+5. Create the ELK OpsWorks stack
+
+`aws cloudformation --stack-name STACKNAME --template-url https://s3-us-west-2.amazonaws.com/YOUBUCKET/cloudformation/elk-opsworks-stack.json --parmaeters ParameterKey=MaxMindLicenseKey,ParameterValue=YOURKEYSTRING`
+
+6. Get the layer IDs for the newly created stack
+
+`aws opsworks describe-layers --stack-id STACKID --region us-east-1 | C:\localbin\jq.exe ".Layers[] | {LayerId, Name}"`
+
+7. Launch the instances in the ES and KB layers
+
+8. Create the ELK pipeline
+
+`aws cloudformation --stack-name STACKNAME --template-url https://s3-us-west-2.amazonaws.com/YOUBUCKET/cloudformation/elk-opsworks-stack.json --parmaeters ParameterKey=OpsworksShipperLayerID,ParameterValue=LSLAYERID,ParameterKey=OpsworksIndexerLayerID,ParameterValue=LSIXLAYERID,ParameterKey=OpsworksRedisLayerID,ParameterValue=RSLAYERID`

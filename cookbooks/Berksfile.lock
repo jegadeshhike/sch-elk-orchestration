@@ -1,0 +1,202 @@
+DEPENDENCIES
+  apt (~> 2.6.0)
+  cron (~> 1.6.1)
+  es-curator
+    git: git://github.com/SCH-CISM/es-curator.git
+    revision: 913ddaa6aafc4ddfc864d2c4e948f5eec58a785c
+    tag: master
+  graphite (~> 1.0.2)
+  java (~> 1.29.0)
+  kibana_lwrp
+    git: git://github.com/lusis/chef-kibana.git
+    revision: ee9125c43c47cc4927256d5876f90d9b2d66d813
+    tag: ee9125c
+  redisio (~> 1.7.1)
+  sch-base
+    git: git://github.com/SCH-CISM/sch-base.git
+    revision: f1d8d78f1f31b29c2265589c5c528eb1c8094daa
+    tag: v0.3.2
+  sch-collectd
+    git: git://github.com/SCH-CISM/sch-collectd.git
+    revision: ed2062cc0fa99f794dc49f931c1b046bcb6140c4
+    branch: master
+  sch-elasticsearch
+    git: git://github.com/SCH-CISM/sch-elasticsearch.git
+    revision: 4abb329d637857536c053a12def3502108f91034
+    tag: v0.3.1
+  sch-kibana
+    git: git://github.com/SCH-CISM/sch-kibana.git
+    revision: 3ed6cfe158fd65d8fc47b285ed5b53e316457244
+    tag: v0.3.2
+  sch-logstash
+    git: git://github.com/sch-cism/sch-logstash.git
+    revision: b767e39f4d4b7518fbf257a9ddec7ca7342ba62c
+    tag: v0.5.1
+  sch-redis-monitor
+    git: git://github.com/SCH-CISM/sch-redis-monitor.git
+    revision: f11b6bb7f2f469088baeccd3f0c130a2a5e95e1b
+    branch: master
+  sch-user
+    git: git://github.com/SCH-CISM/sch-user.git
+    revision: 2c75a42fcde5f21ae42651f08f49dd89f94f48fa
+    tag: v2.1.0
+  statsd
+    git: git://github.com/hectcastro/chef-statsd.git
+    revision: 385dd15e38fdd29517a8277a91b5f782c55b51d8
+    branch: master
+  sysctl (~> 0.6.2)
+  windows (~> 1.38.1)
+
+GRAPH
+  7-zip (1.0.2)
+    windows (>= 1.2.2)
+  ant (1.0.2)
+    ark (>= 0.0.0)
+    java (>= 0.0.0)
+  apache2 (3.1.0)
+  apt (2.6.1)
+  ark (0.9.0)
+    7-zip (>= 0.0.0)
+    windows (>= 0.0.0)
+  aws (2.7.2)
+  beaver (1.5.0)
+    apt (>= 0.0.0)
+    python (>= 0.0.0)
+  bluepill (2.4.1)
+    rsyslog (~> 2.0)
+  build-essential (2.2.4)
+  chef-sugar (3.3.0)
+  chef_handler (1.2.0)
+  cloudwatch-logs (0.0.4)
+  collectd (2.2.1)
+    poise (~> 2.2)
+    poise-service (~> 1.0)
+  compat_resource (12.5.26)
+  cron (1.6.1)
+  curl (2.0.1)
+  dmg (2.3.0)
+  elasticsearch (2.1.1)
+    apt (>= 0.0.0)
+    ark (>= 0.0.0)
+    chef-sugar (>= 0.0.0)
+    yum (>= 0.0.0)
+  es-curator (0.2.3)
+    cron (~> 1.6.1)
+    python (~> 1.4.6)
+  git (4.3.5)
+    build-essential (>= 0.0.0)
+    dmg (>= 0.0.0)
+    windows (>= 0.0.0)
+    yum-epel (>= 0.0.0)
+  graphite (1.0.2)
+    build-essential (>= 0.0.0)
+    memcached (>= 0.0.0)
+    python (>= 0.0.0)
+    runit (~> 1.0)
+    yum-epel (>= 0.0.0)
+  homebrew (2.0.3)
+    build-essential (>= 2.1.2)
+  htop (2.0.0)
+    yum-repoforge (>= 0.0.0)
+  java (1.29.0)
+  kibana_lwrp (2.0.6)
+    apache2 (>= 0.0.0)
+    ark (>= 0.0.0)
+    git (>= 0.0.0)
+    java (>= 0.0.0)
+    libarchive (>= 0.0.0)
+    nginx (>= 0.0.0)
+    poise (>= 0.0.0)
+    runit (>= 0.0.0)
+  libarchive (0.6.1)
+    apt (~> 2.5)
+    yum-epel (~> 0.6)
+  logrotate (1.9.2)
+  logstash (0.12.0)
+    ant (>= 0.0.0)
+    apt (>= 0.0.0)
+    ark (>= 0.0.0)
+    beaver (>= 0.0.0)
+    build-essential (>= 0.0.0)
+    curl (>= 0.0.0)
+    elasticsearch (>= 0.0.0)
+    git (>= 0.0.0)
+    java (>= 0.0.0)
+    logrotate (>= 0.0.0)
+    python (>= 0.0.0)
+    runit (>= 0.0.0)
+  memcached (2.0.2)
+    compat_resource (>= 0.0.0)
+    runit (~> 1.0)
+    yum-epel (>= 0.0.0)
+  nginx (2.7.6)
+    apt (~> 2.2)
+    bluepill (~> 2.3)
+    build-essential (~> 2.0)
+    ohai (~> 2.0)
+    runit (~> 1.2)
+    yum-epel (~> 0.3)
+  nodejs (2.4.4)
+    apt (>= 0.0.0)
+    ark (>= 0.0.0)
+    build-essential (>= 0.0.0)
+    homebrew (>= 0.0.0)
+    yum-epel (>= 0.0.0)
+  ohai (2.0.4)
+  packagecloud (0.1.1)
+  poise (2.5.0)
+  poise-service (1.1.0)
+    poise (~> 2.0)
+  python (1.4.6)
+    build-essential (>= 0.0.0)
+    yum-epel (>= 0.0.0)
+  redisio (1.7.1)
+    ulimit (>= 0.1.2)
+  rsyslog (2.2.0)
+  runit (1.7.6)
+    packagecloud (>= 0.0.0)
+  sch-base (0.3.2)
+    aws (>= 2.7.2)
+    chef-sugar (>= 3.2.0)
+    cloudwatch-logs (>= 0.0.4)
+    htop (>= 1.1.0)
+    yum-repoforge (>= 0.5.2)
+  sch-collectd (0.1.0)
+    collectd (>= 0.4.2)
+  sch-elasticsearch (0.3.1)
+    chef-sugar (>= 3.1.1)
+    elasticsearch (>= 2.1.0)
+  sch-kibana (0.3.2)
+    java (>= 0.0.0)
+    kibana_lwrp (~> 2.0)
+    poise (>= 0.0.0)
+    runit (>= 0.0.0)
+  sch-logstash (0.5.1)
+    apt (>= 0.0.0)
+    chef-sugar (~> 3.2)
+    logstash (~> 0.12.0)
+    runit (>= 0.0.0)
+  sch-redis-monitor (0.1.1)
+    cron (~> 1.6.1)
+  sch-user (2.1.0)
+    poise (~> 2.0)
+    sudo (~> 2.5)
+    ulimit (~> 0.3)
+    user (~> 0.3)
+  statsd (1.1.12)
+    git (>= 0.0.0)
+    nodejs (>= 0.0.0)
+    runit (>= 0.0.0)
+  sudo (2.7.2)
+  sysctl (0.6.2)
+    ohai (>= 0.0.0)
+  ulimit (0.3.3)
+  user (0.4.2)
+  windows (1.38.4)
+    chef_handler (>= 0.0.0)
+  yum (3.8.2)
+  yum-epel (0.6.5)
+    yum (~> 3.2)
+  yum-repoforge (0.5.7)
+    yum (~> 3.2)
+    yum-epel (>= 0.0.0)

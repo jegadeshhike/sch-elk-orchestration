@@ -1,0 +1,715 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "Create an ELK OpsWorks Stack.",
+  "Metadata": {
+    "AWS::CloudFormation::Interface": {
+      "ParameterGroups": [{
+        "Label": { "default": "Network"},
+        "Parameters": [ "VpcID", "SubnetID", "KeyName", "ZoneName", "DefaultSG" ]
+      }, {
+        "Label": { "default": "ELK Config"},
+        "Parameters": [ "CookbookBundle", "ElasticsearchCluster", 
+          "LSInputS3Bucket", "LSInputS3Prefix" , "MaxMindLicenseKey",
+          "myKibanaSSLCert", "KibanaListenerHostname", "KibanaSecurityGroupID", 
+          "KibanaInstaceSecurityGroupID", "PublicSubnets",
+          "ELKSubnetIDs" ]
+      }, {
+        "Label": { "default": "Instance Selection"},
+        "Parameters": [ "ElasticsearchInstanceType", "ShipperInstanceType", 
+          "RedisInstanceType", "IndexerInstanceType", "KibanaInstanceType" ]
+      }]
+    }
+  },
+  "Parameters": {
+    "DefaultSG": {
+      "Type": "AWS::EC2::SecurityGroup::Id",
+      "Default": "sg-fdf41998",
+      "Description": "Intra-ELK and Bastion access security group"
+    },
+    "MaxMindLicenseKey": {
+      "Type": "String",
+      "Default": "",
+      "Description": "MaxMind download license key.",
+      "NoEcho": "true"
+    },
+    "ZoneName": {
+      "Type": "String",
+      "Default": "c.severski.net.",
+      "Description": "Hosted zone name."
+    },
+    "KibanaListenerHostname": {
+      "Type": "String",
+      "Default": "kibana4",
+      "Description": "Enter the short hostname to use for the Kibana listener (must match certificate)."
+    },
+    "PublicSubnets": {
+      "Type": "List<AWS::EC2::Subnet::Id>",
+      "Default": "subnet-835054f7,subnet-49a7f82c,subnet-1050b149",
+      "Description": "One or more public subnets in which to place Kibana ELB listener."
+    },
+    "KibanaSecurityGroupID": {
+      "Type": "AWS::EC2::SecurityGroup::Id",
+      "Default": "sg-a515dec1",
+      "Description": "Security group to control access to Kibana public web interface."
+    },
+    "KibanaInstaceSecurityGroupID": {
+      "Type": "AWS::EC2::SecurityGroup::Id",
+      "Default": "sg-7c448319",
+      "Description": "Security group to allow ELB access to the Kibana worker node web interface."
+    },
+    "myKibanaSSLCert": {
+      "Type": "String",
+      "Default": "server-certificate/kibana-cert",
+      "Description": "Enter the name of the Kibana SSL certificate."
+    },
+    "AuditlogBucket": {
+      "Type": "String",
+      "Default": "auditlogs-cism-sch",
+      "Description": "Enter the pre-existing bucket to which logs should be sent."
+    },
+    "CookbookBundle": {
+      "Type": "String",
+      "Default": "cookbooks/elk-cookbooks.tar.gz",
+      "Description": "Enter the S3 key of the ELK cookbooks bundle."
+    },
+    "ElasticsearchCluster": {
+      "Type": "String",
+      "Default": "elktest",
+      "Description": "Enter the name of the Elasticsearch cluster."
+    },
+    "ElasticsearchVersion": {
+      "Type": "String",
+      "Default": "2.1.1",
+      "Description": "Enter the version of Elasticsearch to deploy."
+    },
+    "LSInputS3Bucket": {
+      "Type": "String",
+      "Default": "elkinput-cism-sch",
+      "Description": "Enter the S3 bucket of the ELK input files."
+    },
+    "LSInputS3Prefix": {
+      "Type": "String",
+      "Default": "2-ELK/input/",
+      "Description": "Enter the key prefix to the ELK input files."
+    },
+    "ElasticsearchInstanceType": {
+      "Type": "String",
+      "Default": "m3.2xlarge",
+      "Description": "EC2 instance type to use for Elasticsearch nodes."
+    },
+    "KibanaInstanceType": {
+      "Type": "String",
+      "Default": "t2.small",
+      "Description": "EC2 instance type to use for Kibana node."
+    },
+    "IndexerInstanceType": {
+      "Type": "String",
+      "Default": "c3.2xlarge",
+      "Description": "EC2 instance type to use for Logstash Indexer nodes."
+    },
+    "ShipperInstanceType": {
+      "Type": "String",
+      "Default": "c3.large",
+      "Description": "EC2 instance type to use for Logstash Shipper nodes."
+    },
+    "RedisInstanceType": {
+      "Type": "String",
+      "Default": "r3.large",
+      "Description": "EC2 instance type to use for Redis nodes."
+    },
+    "KeyName": {
+      "Description": "The EC2 Key Pair to allow SSH access to the instances.",
+      "Default": "davidski",
+      "Type": "AWS::EC2::KeyPair::KeyName",
+      "ConstraintDescription": "Must be the name of an existing EC2 KeyPair."
+    },
+    "ELKSubnetIDs": {
+      "Type": "List<AWS::EC2::Subnet::Id>",
+      "Default": "subnet-e1c82e96,subnet-9b956dfe,subnet-4e9ca508",
+      "Description": "Select three subnet IDs for the Elasticsearch nodes."
+    },
+    "SubnetID": {
+      "Type": "AWS::EC2::Subnet::Id",
+      "Default": "subnet-1d120269",
+      "Description": "Enter the subnet ID for the general ELK zone."
+    },
+    "VpcID": {
+      "Type": "AWS::EC2::VPC::Id",
+      "Default": "vpc-d07f66b2",
+      "Description": "Enter the VPC ID in which to run."
+    },
+    "InfrastructureBucket": {
+      "Type": "String",
+      "Default": "infrastructure-cism-sch",
+      "Description": "Enter the pre-existing bucket for infrastructure code."
+    },
+    "OpsWorksCFNFunction": {
+      "Type": "String",
+      "Default": "lambda-pycfn-opsworks-OpsworksInstanceFunction-1JDGIM1D8H6ZS",
+      "Description": "Enter the name of the custom Lambda-backed CloudFormation OpsWorks handler."
+    }
+  },
+  "Resources": {
+    "myELB": {
+      "Type": "AWS::ElasticLoadBalancing::LoadBalancer",
+      "Properties": {
+        "AccessLoggingPolicy": {
+          "EmitInterval": 5,
+          "Enabled": true,
+          "S3BucketName": {"Ref": "AuditlogBucket"},
+          "S3BucketPrefix": "logs/elb"
+        },
+        "CrossZone": true,
+        "LoadBalancerName": "elk-kibana-elb",
+        "Listeners": [{
+          "InstancePort": "80",
+          "InstanceProtocol": "http",
+          "LoadBalancerPort": "443",
+          "Protocol": "https",
+          "SSLCertificateId": {"Fn::Join": [":", [
+            "arn:aws:iam:",
+            {"Ref": "AWS::AccountId"},
+            {"Ref": "myKibanaSSLCert"}
+          ]]},
+        }, {
+          "InstancePort": "80",
+          "InstanceProtocol": "http",
+          "LoadBalancerPort": "80",
+          "Protocol": "http"
+        }],
+        "Policies": [{
+          "PolicyName": "ELBSecurityPolicyName",
+          "PolicyType": "SSLNegotiationPolicyType",
+          "Attributes": [{
+            "Name": "Reference-Security-Policy",
+            "Value": "ELBSecurityPolicy-2015-05"
+          }]
+        }],
+        "Scheme": "internet-facing",
+        "SecurityGroups": [{"Ref": "KibanaSecurityGroupID"}],
+        "Subnets": {"Ref": "PublicSubnets"},
+        "Tags": [{
+          "Key": "project",
+          "Value": "elk"
+        }]
+      }
+    },
+    "myDNSEntry": {
+      "Type" : "AWS::Route53::RecordSet",
+      "Properties" : {
+        "AliasTarget" : {
+          "DNSName": {"Fn::GetAtt": ["myELB", "DNSName"]},
+          "HostedZoneId": {"Fn::GetAtt": ["myELB", "CanonicalHostedZoneNameID"]}
+        },
+        "HostedZoneName": "c.severski.net.",
+        "Name" : {"Fn::Join": [".", [
+          {"Ref": "KibanaListenerHostname"},
+          {"Ref": "ZoneName"}
+         ]]},
+        "Type" : "A"
+      }
+    },
+    "ELBAttachment": {
+      "Type" : "AWS::OpsWorks::ElasticLoadBalancerAttachment",
+      "Properties" : {
+        "ElasticLoadBalancerName" : { "Ref" : "myELB" },
+        "LayerId" : { "Ref" : "myKibanaLayer" }
+      }
+    },
+    "myStack": {
+      "Type": "AWS::OpsWorks::Stack",
+      "Properties": {
+        "DefaultInstanceProfileArn": {"Fn::Join": [":", [
+          "arn:aws:iam:",
+          {"Ref": "AWS::AccountId"},
+          "instance-profile/rleELK"
+        ]]},
+        "DefaultSshKeyName": { "Ref": "KeyName" },
+        "DefaultSubnetId": { "Ref": "SubnetID" },
+        "DefaultOs": "Amazon Linux 2015.09",
+        "ConfigurationManager": {
+          "Name": "Chef",
+          "Version": "12"
+        },
+        "VpcId": { "Ref": "VpcID" },
+        "Name": {"Fn::Join": ["-", ["ELK", {"Ref": "AWS::StackName"} ]]},
+        "ServiceRoleArn": {"Fn::Join": [":", [
+          "arn:aws:iam:",
+          {"Ref": "AWS::AccountId"},
+          "role/aws-opsworks-service-role"
+        ]]},
+        "UseCustomCookbooks": "true",
+        "UseOpsworksSecurityGroups": "false",
+        "CustomCookbooksSource": {
+          "Type": "s3",
+          "Url": {
+            "Fn::Join": ["", ["https://s3-", 
+            { "Ref": "AWS::Region"}, 
+            ".amazonaws.com/", 
+            { "Ref": "InfrastructureBucket" }, 
+            "/",
+            { "Ref": "CookbookBundle" }
+            ]]
+          }
+        },
+        "DefaultRootDeviceType": "instance-store",
+        "CustomJson": {
+          "sch-base": {
+            "project_name": "elk"
+          },
+          "apt": {
+            "compile_time_update": "true"
+          },
+          "collectd": {
+            "version": "5.4.1",
+            "ulr": "https://s3.amazonaws.com/collectd-5.4.1/collectd-5-4-1.tar.gz",
+            "graphite_ipaddress": "10.0.0.51",
+            "plugins": {
+              "interface": {},
+              "write_graphite": {
+                "config": {
+                  "SeparateInstances": true,
+                  "EscapeCharacter": "_",
+                  "StoreRates": false
+                }
+              },
+              "cpu": {},
+              "load": {},
+              "memory": {}
+            }
+          },
+          "java": {
+            "install_flavor": "oracle",
+            "jdk_version": "8",
+            "oracle": {
+              "accept_oracle_download_terms": true
+            }
+          },
+          "redisio": {
+            "version": "2.8.21",
+            "servers": [{
+              "port": "6379",
+              "maxmemory": "85%",
+              "save": ""
+            }]
+          },
+          "sysctl": {
+            "params": {
+              "vm": {
+                "overcommit_memory": "1"
+              },
+              "fs": {
+                "file-max": "512000"
+              }
+            }
+          },
+          "logstash": {
+            "xms": "500M",
+            "elasticsearch_cluster": {"Ref": "ElasticsearchCluster"},
+            "config_templates_cookbook": "sch-logstash",
+            "instance_default": {
+              "maxmind_license_key": {"Ref": "MaxMindLicenseKey"}
+            },
+            "plugin_path": "false",
+            "templates": {
+              "input_s3_bucket": {"Ref": "LSInputS3Bucket"},
+              "input_s3_prefix": {"Ref": "LSInputS3Prefix"},
+              "redis_congestion_threshold": 25000000
+            }
+          },
+          "kibana": {
+            "webserver": "apache",
+            "webserver_hostname": "kibana.c.severski.net",
+            "webserver_listen": "*",
+            "es_server": "localhost",
+            "config": {
+              "kibana_index": ".kibana4"
+            }
+          },
+          "graphite": {
+            "listen_port": 80,
+            "url": "graphite.c.severski.net"
+          },
+          "elasticsearch-curator": {
+            "elasticsearch_server": "localhost",
+            "days_to_keep": "20",
+            "optimize_indices_after": "5",
+            "snapshot_repository": "elk_snapshots",
+            "backup_weekday": "6",
+            "dekete_snapshots_older_than": "60",
+            "bin_dir": "/usr/local/bin/"
+          },
+          "elasticsearch": {
+            "version": {"Ref": "ElasticsearchVersion"},
+            "config": {
+              "cluster.name": {"Ref": "ElasticsearchCluster"},
+              "network.publish_host": "_non_loopback:ipv4_",
+              "network.bind_host": "0.0.0.0"
+            },
+            "plugins": {
+              "kopf": "lmenezes/elasticsearch-kopf/2.0",
+              "cloud-aws": "cloud-aws"
+            },
+            "cloud": {
+              "aws": {
+                "region": "us-west-2"
+              },
+              "node": {
+                "autoattributes": "true"
+              }
+            },
+            "discovery": {
+              "zen": {
+                "minimum_master_nodes": 2
+              },
+              "type": "ec2",
+              "ec2": {
+                "host_type": "private_ip"
+              }
+            },
+            "data": {
+              "devices": {
+                "/dev/md0": {
+                  "file_system": "ext3",
+                  "mount_options": "rw,user",
+                  "mount_path": "/es",
+                  "format_command": "mkfs.ext3",
+                  "fs_check_command": "dumpe2fs"
+                }
+              }
+            },
+            "index": {
+              "number_of_replicas": "1",
+              "number_of_shards": "2"
+            }
+          }
+        }
+      }
+    },
+    "myESLayer": {
+      "Type": "AWS::OpsWorks::Layer",
+      "Properties": {
+        "StackId": { "Ref": "myStack" },
+        "Type": "custom",
+        "Shortname": "es",
+        "EnableAutoHealing": "true",
+        "AutoAssignElasticIps": "false",
+        "AutoAssignPublicIps": "false",
+        "Name": "Elasticsearch",
+        "CustomSecurityGroupIds": [{"Ref": "DefaultSG"}],
+        "CustomRecipes": {
+          "Undeploy": [],
+          "Setup": [],
+          "Configure": [],
+          "Shutdown": [],
+          "Deploy": [
+            "apt::default",
+            "sch-base::default",
+            "sch-user::default",
+            "sch-collectd::default",
+            "java::default",
+            "sch-elasticsearch::create_raid",
+            "sch-elasticsearch::data",
+            "sch-elasticsearch::default"
+          ]
+        }
+      }
+    },
+    "myLSShipperLayer": {
+      "Type": "AWS::OpsWorks::Layer",
+      "Properties": {
+        "StackId": { "Ref": "myStack" },
+        "Type": "custom",
+        "Shortname": "ls_shipper",
+        "EnableAutoHealing": "true",
+        "AutoAssignElasticIps": "false",
+        "AutoAssignPublicIps": "false",
+        "Name": "Logstash Shipper",
+        "CustomSecurityGroupIds": [{"Ref": "DefaultSG"}],
+        "CustomRecipes": {
+          "Undeploy": [],
+          "Setup": [],
+          "Configure": [],
+          "Shutdown": [],
+          "Deploy": [
+            "apt::default",
+            "sch-base::default",
+            "sch-user::default",
+            "sch-collectd::default",
+            "java::default",
+            "sch-logstash::shipper"
+          ]
+        }
+      }
+    },
+    "myLSIndexerLayer": {
+      "Type": "AWS::OpsWorks::Layer",
+      "Properties": {
+        "StackId": { "Ref": "myStack" },
+        "Type": "custom",
+        "Shortname": "ls_indexer",
+        "EnableAutoHealing": "true",
+        "AutoAssignElasticIps": "false",
+        "AutoAssignPublicIps": "false",
+        "Name": "Logstash Indexer",
+        "CustomSecurityGroupIds": [{"Ref": "DefaultSG"}],
+        "CustomRecipes": {
+          "Undeploy": [],
+          "Setup": [],
+          "Configure": [],
+          "Shutdown": [],
+          "Deploy": [
+            "apt::default",
+            "sch-base::default",
+            "sch-user::default",
+            "sch-collectd::default",
+            "java::default",
+            "sch-logstash::indexer"
+          ]
+        }
+      }
+    },
+    "myRedisLayer": {
+      "Type": "AWS::OpsWorks::Layer",
+      "Properties": {
+        "StackId": { "Ref": "myStack" },
+        "Type": "custom",
+        "Shortname": "redis",
+        "EnableAutoHealing": "true",
+        "AutoAssignElasticIps": "false",
+        "AutoAssignPublicIps": "false",
+        "Name": "Redis Buffer",
+        "CustomSecurityGroupIds": [{"Ref": "DefaultSG"}],
+        "CustomRecipes": {
+          "Undeploy": [],
+          "Setup": [],
+          "Configure": [],
+          "Shutdown": [],
+          "Deploy": [
+            "apt::default",
+            "sch-base::default",
+            "sch-user::default",
+            "sch-collectd::default",
+            "sysctl::default",
+            "redisio::install",
+            "redisio::enable",
+            "sch-redis-monitor::default"
+          ]
+        }
+      }
+    },
+    "myKibanaLayer": {
+      "Type": "AWS::OpsWorks::Layer",
+      "Properties": {
+        "StackId": { "Ref": "myStack" },
+        "Type": "custom",
+        "Shortname": "kb",
+        "EnableAutoHealing": "true",
+        "AutoAssignElasticIps": "false",
+        "AutoAssignPublicIps": "false",
+        "Name": "Kibana",
+        "CustomSecurityGroupIds": [{"Ref": "DefaultSG"}, {"Ref": "KibanaInstaceSecurityGroupID"}],
+        "CustomRecipes": {
+          "Undeploy": [],
+          "Setup": [],
+          "Configure": [],
+          "Shutdown": [],
+          "Deploy": [
+            "apt::default",
+            "sch-base::default",
+            "sch-user::default",
+            "python::default",
+            "es-curator::default",
+            "java::default",
+            "sch-elasticsearch::client_node",
+            "sch-kibana::default"
+          ]
+        }
+      }
+    },
+    "myES1Instance": {
+      "Type": "Custom::OpsworksInstance",
+      "Properties": {
+        "ServiceToken": {"Fn::Join": [":", [
+          "arn:aws:lambda",
+          { "Ref": "AWS::Region"},
+          { "Ref": "AWS::AccountId"},
+          "function",
+          { "Ref": "OpsWorksCFNFunction" }
+        ]]},
+        "EbsOptimized": false,
+        "InstallUpdatesOnBoot": true,
+        "InstanceType": { "Ref": "ElasticsearchInstanceType" },
+        "LayerIds": { "Ref": "myESLayer" },
+        "RootDeviceType": "instance-store",
+        "StackId": { "Ref": "myStack" },
+        "SubnetId": { "Fn::Select": [0, {"Ref": "ELKSubnetIDs" }]}
+      }
+    },
+    "myES2Instance": {
+      "Type": "Custom::OpsworksInstance",
+      "Properties": {
+       "ServiceToken": {"Fn::Join": [":", [
+          "arn:aws:lambda",
+          { "Ref": "AWS::Region" },
+          { "Ref": "AWS::AccountId" },
+          "function",
+          { "Ref": "OpsWorksCFNFunction" }
+        ]]},
+        "EbsOptimized": false,
+        "InstallUpdatesOnBoot": true,
+        "InstanceType": { "Ref": "ElasticsearchInstanceType" },
+        "LayerIds": { "Ref": "myESLayer" },
+        "RootDeviceType": "instance-store",
+        "StackId": { "Ref": "myStack" },
+        "SubnetId": { "Fn::Select": [1, {"Ref": "ELKSubnetIDs" }]}
+      }
+    },
+    "myES3Instance": {
+      "Type": "Custom::OpsworksInstance",
+      "Properties": {
+       "ServiceToken": {"Fn::Join": [":", [
+          "arn:aws:lambda",
+          { "Ref": "AWS::Region"},
+          { "Ref": "AWS::AccountId"},
+          "function",
+          { "Ref": "OpsWorksCFNFunction" }
+        ]]},
+        "EbsOptimized": false,
+        "InstallUpdatesOnBoot": true,
+        "InstanceType": { "Ref": "ElasticsearchInstanceType" },
+        "LayerIds": { "Ref": "myESLayer" },
+        "RootDeviceType": "instance-store",
+        "StackId": { "Ref": "myStack" },
+        "SubnetId": { "Fn::Select": [2, {"Ref": "ELKSubnetIDs" }]}
+      }
+    },
+    "myES4Instance": {
+      "Type": "Custom::OpsworksInstance",
+      "Properties": {
+       "ServiceToken": {"Fn::Join": [":", [
+          "arn:aws:lambda",
+          { "Ref": "AWS::Region"},
+          { "Ref": "AWS::AccountId"},
+          "function",
+          { "Ref": "OpsWorksCFNFunction" }
+        ]]},
+        "EbsOptimized": false,
+        "InstallUpdatesOnBoot": true,
+        "InstanceType": { "Ref": "ElasticsearchInstanceType" },
+        "LayerIds": { "Ref": "myESLayer" },
+        "RootDeviceType": "instance-store",
+        "StackId": { "Ref": "myStack" },
+        "SubnetId": { "Fn::Select": [0, {"Ref": "ELKSubnetIDs" }]}
+      }
+    },
+    "myLSi1Instance": {
+      "Type": "Custom::OpsworksInstance",
+      "Properties": {
+       "ServiceToken": {"Fn::Join": [":", [
+          "arn:aws:lambda",
+          { "Ref": "AWS::Region"},
+          { "Ref": "AWS::AccountId"},
+          "function",
+          { "Ref": "OpsWorksCFNFunction" }
+        ]]},
+        "EbsOptimized": false,
+        "InstallUpdatesOnBoot": true,
+        "InstanceType": { "Ref": "IndexerInstanceType" },
+        "LayerIds": { "Ref": "myLSIndexerLayer" },
+        "RootDeviceType": "instance-store",
+        "StackId": { "Ref": "myStack" }
+      }
+    },
+    "myLSi2Instance": {
+      "Type": "Custom::OpsworksInstance",
+      "Properties": {
+       "ServiceToken": {"Fn::Join": [":", [
+          "arn:aws:lambda",
+          { "Ref": "AWS::Region"},
+          { "Ref": "AWS::AccountId"},
+          "function",
+          { "Ref": "OpsWorksCFNFunction" }
+        ]]},
+        "EbsOptimized": false,
+        "InstallUpdatesOnBoot": true,
+        "InstanceType": { "Ref": "IndexerInstanceType" },
+        "LayerIds": { "Ref": "myLSIndexerLayer" },
+        "RootDeviceType": "instance-store",
+        "StackId": { "Ref": "myStack" }
+      }
+    },
+    "myLSi3Instance": {
+      "Type": "Custom::OpsworksInstance",
+      "Properties": {
+       "ServiceToken": {"Fn::Join": [":", [
+          "arn:aws:lambda",
+          { "Ref": "AWS::Region"},
+          { "Ref": "AWS::AccountId"},
+          "function",
+          { "Ref": "OpsWorksCFNFunction" }
+        ]]},
+        "EbsOptimized": false,
+        "InstallUpdatesOnBoot": true,
+        "InstanceType": { "Ref": "IndexerInstanceType" },
+        "LayerIds": { "Ref": "myLSIndexerLayer" },
+        "RootDeviceType": "instance-store",
+        "StackId": { "Ref": "myStack" }
+      }
+    },
+    "myLSs1Instance": {
+      "Type": "Custom::OpsworksInstance",
+      "Properties": {
+       "ServiceToken": {"Fn::Join": [":", [
+          "arn:aws:lambda",
+          { "Ref": "AWS::Region"},
+          { "Ref": "AWS::AccountId"},
+          "function",
+          { "Ref": "OpsWorksCFNFunction" }
+        ]]},
+        "EbsOptimized": false,
+        "InstallUpdatesOnBoot": true,
+        "InstanceType": { "Ref": "ShipperInstanceType" },
+        "LayerIds": { "Ref": "myLSShipperLayer" },
+        "RootDeviceType": "instance-store",
+        "StackId": { "Ref": "myStack" }
+      }
+    },
+    "myKibanaInstance": {
+      "Type": "Custom::OpsworksInstance",
+      "Properties": {
+       "ServiceToken": {"Fn::Join": [":", [
+          "arn:aws:lambda",
+          { "Ref": "AWS::Region"},
+          { "Ref": "AWS::AccountId"},
+          "function",
+          { "Ref": "OpsWorksCFNFunction" }
+        ]]},
+        "EbsOptimized": false,
+        "InstallUpdatesOnBoot": true,
+        "InstanceType": { "Ref": "KibanaInstanceType" },
+        "LayerIds": { "Ref": "myKibanaLayer" },
+        "RootDeviceType": "ebs",
+        "StackId": { "Ref": "myStack" }
+      }
+    },
+    "myRedisInstance": {
+      "Type": "Custom::OpsworksInstance",
+      "Properties": {
+       "ServiceToken": {"Fn::Join": [":", [
+          "arn:aws:lambda",
+          { "Ref": "AWS::Region"},
+          { "Ref": "AWS::AccountId"},
+          "function",
+          { "Ref": "OpsWorksCFNFunction" }
+        ]]},
+        "EbsOptimized": false,
+        "InstallUpdatesOnBoot": true,
+        "InstanceType": { "Ref": "RedisInstanceType" },
+        "LayerIds": { "Ref": "myRedisLayer" },
+        "RootDeviceType": "instance-store",
+        "StackId": { "Ref": "myStack" }
+      }
+    }
+  }
+}

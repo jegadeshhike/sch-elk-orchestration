@@ -8,25 +8,25 @@ import os
 # Arguments
 parser = argparse.ArgumentParser()
 parser.add_argument('-r', '--region',
-                    default='us-east-1',
+                    default='us-west-2',
                     type=str, help='AWS region')
 parser.add_argument('-o', '--opsworks_region',
                     default='us-east-1',
                     type=str, help='Opsworks region endpoint')
 parser.add_argument('-s', '--shipper_opsworks_layer_id',
-                    default='9f1f1fa0-6a52-4227-8c54-76dd17873a27',
+                    default='6b51b650-bc78-4bbc-8d0c-67e3b8db22ac',
                     type=str, help='Opsworks ID of the Shipper Layer')
 parser.add_argument('-cd', '--cooldown_period',
-                    default=3,
+                    default=5,
                     type=int, help='Cooldown period in minutes before ' +
                     'scale down of shipper')
 parser.add_argument('-en', '--elk_pipeline_metric_namespace',
-                    default='Pipeline1',
+                    default='Logstash',
                     type=str,
                     help='Custom Cloudwatch metric namespace used for ' +
                          'ELK Pipeline')
-parser.add_argument('-em', '--elk_pipeline_metric_name', default='ELK1',
-                    type=str,
+parser.add_argument('-em', '--elk_pipeline_metric_name',
+                    default='ELK_Pipeline_Status',
                     help='Custom Cloudwatch metric name used for ' +
                     'ELK Pipeline')
 args = parser.parse_args()

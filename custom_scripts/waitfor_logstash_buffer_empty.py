@@ -1,17 +1,18 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
 # Script for checking the value of The Logstash Buffer Cloudwatch metric
-# Returns true if <= 0 or no data in the last 5 minutes
+# Returns true once buffer <= 0 or no data in the last 5 minutes
 
 import boto.opsworks
 import boto.ec2.cloudwatch
 import datetime
 import argparse
+import time
 
 # Arguments
 parser = argparse.ArgumentParser()
 parser.add_argument('-r', '--region',
-                    default='us-east-1',
+                    default='us-west-2',
                     type=str, help='AWS region')
 parser.add_argument('-o', '--opsworks_region',
                     default='us-east-1',
@@ -26,7 +27,7 @@ parser.add_argument('-lm', '--logstash_metric_name',
                     type=str, help='Custom Cloudwatch metric name used ' +
                     'for Logstash Buffer')
 parser.add_argument('-i', '--indexer_opsworks_layer_id',
-                    default='9cafbed2-a248-40a4-8b9d-0a68a8629771',
+                    default='be95581a-bbac-457d-84e6-b63a6ca98a9a',
                     type=str, help='Opsworks ID of the Indexer Layer')
 args = parser.parse_args()
 region = args.region
@@ -35,6 +36,17 @@ metric_namespace = args.logstash_metric_namespace
 metric_name = args.logstash_metric_name
 indexer_opsworks_layer_id = args.indexer_opsworks_layer_id
 
+
+def get_cw_metric(cw):
+    cw_start_time = datetime.datetime.utcnow() - datetime.timedelta(seconds=300)
+    datapoints = cw.get_metric_statistics(period=60,
+                                          start_time=cw_start_time,
+                                          end_time=datetime.datetime.utcnow(),
+                                          namespace=metric_namespace,
+                                          metric_name=metric_name,
+                                          statistics='Average')
+    value = float(datapoints[0].get('Average'))
+    return value
 
 # Check status of indexers first
 opswork = boto.opsworks.connect_to_region(opsworks_region)
@@ -51,21 +63,12 @@ for key, value in instances.items():
 
 # Check Logstash Buffer
 cw = boto.ec2.cloudwatch.connect_to_region(region)
-cw_start_time = datetime.datetime.utcnow() - datetime.timedelta(seconds=300)
-datapoints = cw.get_metric_statistics(period=60,
-                                      start_time=cw_start_time,
-                                      end_time=datetime.datetime.utcnow(),
-                                      namespace=metric_namespace,
-                                      metric_name=metric_name,
-                                      statistics='Average')
-
-for dp in datapoints:
-    value = float(dp.get('Average'))
-    if value > 0:
-        print ('Found datapoint {0}. Logstash Buffer is not empty.').format(
-            str(value))
-        # An abnormal exit would return false to ShellCommandPrecondition
-        exit(1)
+value = get_cw_metric(cw)
+while value > 0:
+    print('Found data point {0}. Logstash Buffer is not empty.').format(
+        str(value))
+    time.sleep(60)
+    value = get_cw_metric(cw)
 
 # A normal exit would return true to ShellCommandPrecondition
 print 'Logstash Buffer is empty'
