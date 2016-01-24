@@ -51,4 +51,4 @@ while value == 0:
 
 # An abnormal exit would return false to ShellCommand
 print 'Logstash Buffer is not empty'
-exit(1)
+exit(0)
