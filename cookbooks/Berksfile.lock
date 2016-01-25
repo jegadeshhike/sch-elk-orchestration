@@ -3,8 +3,8 @@ DEPENDENCIES
   cron (~> 1.6.1)
   es-curator
     git: git://github.com/SCH-CISM/es-curator.git
-    revision: 913ddaa6aafc4ddfc864d2c4e948f5eec58a785c
-    tag: master
+    revision: 56beb3afa70e46aec6ee3f111c91f247885ad4e5
+    tag: v0.2.4
   graphite (~> 1.0.2)
   java (~> 1.29.0)
   kibana_lwrp
@@ -80,7 +80,7 @@ GRAPH
     ark (>= 0.0.0)
     chef-sugar (>= 0.0.0)
     yum (>= 0.0.0)
-  es-curator (0.2.3)
+  es-curator (0.2.4)
     cron (~> 1.6.1)
     python (~> 1.4.6)
   git (4.3.5)
