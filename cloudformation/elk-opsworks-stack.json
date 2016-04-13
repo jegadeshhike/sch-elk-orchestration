@@ -79,7 +79,7 @@
     },
     "ElasticsearchVersion": {
       "Type": "String",
-      "Default": "2.1.1",
+      "Default": "2.3.1",
       "Description": "Enter the version of Elasticsearch to deploy."
     },
     "LSInputS3Bucket": {
@@ -226,7 +226,7 @@
         ]]},
         "DefaultSshKeyName": { "Ref": "KeyName" },
         "DefaultSubnetId": { "Ref": "SubnetID" },
-        "DefaultOs": "Amazon Linux 2015.09",
+        "DefaultOs": "Amazon Linux 2016.03",
         "ConfigurationManager": {
           "Name": "Chef",
           "Version": "12"
@@ -343,11 +343,11 @@
             "version": {"Ref": "ElasticsearchVersion"},
             "config": {
               "cluster.name": {"Ref": "ElasticsearchCluster"},
-              "network.publish_host": "_non_loopback:ipv4_",
+              "network.publish_host": "_eth0:ipv4_",
               "network.bind_host": "0.0.0.0"
             },
             "plugins": {
-              "kopf": "lmenezes/elasticsearch-kopf/2.0",
+              "kopf": "lmenezes/elasticsearch-kopf/2.1.1",
               "cloud-aws": "cloud-aws"
             },
             "cloud": {
