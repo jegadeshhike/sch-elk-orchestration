@@ -40,7 +40,7 @@ Usage
 
 3. Upload the Chef cookbooks to s3
 
-`aws s3 cp .\cookbooks\elk-cookbooks.tar.gz s3://YOUBUCKET/cookbooks/ --sse`
+`aws s3 cp .\cookbooks\elk-cookbooks.tar.gz s3://YOURBUCKET/cookbooks/ --sse`
 
 2. Upload the contents of `custom_scripts` to the `bin` directory of your 
 infrastructure bucket.
@@ -54,11 +54,11 @@ infrastructure bucket.
 
 4. Create the IAM roles
 
-`aws cloudformation --stack-name STACKNAME --template-url https://s3-us-west-2.amazonaws.com/YOUBUCKET/cloudformation/elk-iam-roles.json --parmaeters ParameterKey=MaxMindLicenseKey,ParameterValue=YOURKEYSTRING`
+`aws cloudformation --stack-name STACKNAME --template-url https://s3-us-west-2.amazonaws.com/YOURBUCKET/cloudformation/elk-iam-roles.json --parmaeters ParameterKey=MaxMindLicenseKey,ParameterValue=YOURKEYSTRING`
 
 5. Create the ELK OpsWorks stack
 
-`aws cloudformation --stack-name STACKNAME --template-url https://s3-us-west-2.amazonaws.com/YOUBUCKET/cloudformation/elk-opsworks-stack.json --parmaeters ParameterKey=MaxMindLicenseKey,ParameterValue=YOURKEYSTRING`
+`aws cloudformation --stack-name STACKNAME --template-url https://s3-us-west-2.amazonaws.com/YOURBUCKET/cloudformation/elk-opsworks-stack.json --parmaeters ParameterKey=MaxMindLicenseKey,ParameterValue=YOURKEYSTRING`
 
 6. Get the layer IDs for the newly created stack
 
@@ -68,4 +68,4 @@ infrastructure bucket.
 
 8. Create the ELK pipeline
 
-`aws cloudformation --stack-name STACKNAME --template-url https://s3-us-west-2.amazonaws.com/YOUBUCKET/cloudformation/elk-opsworks-stack.json --parmaeters ParameterKey=OpsworksShipperLayerID,ParameterValue=LSLAYERID,ParameterKey=OpsworksIndexerLayerID,ParameterValue=LSIXLAYERID,ParameterKey=OpsworksRedisLayerID,ParameterValue=RSLAYERID`
+`aws cloudformation --stack-name STACKNAME --template-url https://s3-us-west-2.amazonaws.com/YOURBUCKET/cloudformation/elk-opsworks-stack.json --parmaeters ParameterKey=OpsworksShipperLayerID,ParameterValue=LSLAYERID,ParameterKey=OpsworksIndexerLayerID,ParameterValue=LSIXLAYERID,ParameterKey=OpsworksRedisLayerID,ParameterValue=RSLAYERID`
